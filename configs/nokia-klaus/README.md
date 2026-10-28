@@ -1,42 +1,105 @@
-# Klaus local voice terminal (KaiOS)
+# Klaus chat terminal (KaiOS)
 
-Voice-to-text recorder and bridge client for the EcoRay / Klaus backend. Audio is recorded via microphone, submitted to the bridge server, and the assistant reply is shown in the transcript and spoken via TTS.
+Voice and text chat client for the EcoRay / Klaus backend on the Nokia 6300 4G (240x320, KaiOS 2.5 / Gecko 48). Press OK to talk, OK again to pause, the green Call key to send, or press the left softkey to type; the bridge turns the turn into a Klaus run and the reply appears as a chat bubble and is read aloud.
 
-## Features
+## Screen
 
-- **Sessions** — up to 128 open sessions, navigated with ← / →. Press 3 to create a new one.
-- **Archive** — press 7 to archive the current session (confirmation prompt; second 7 confirms, Back cancels). Archived sessions are hidden from navigation but retained in storage. Pending archived sessions continue polling and TTS delivery.
-- **Recording** — Centre (Enter) starts/stops mic recording. Back cancels. Recording is inhibited while a server request is in-flight (shows feedback before requesting mic permission).
-- **Bridge connection** — requires `config.js` injecting `NOKIA_RUNTIME_CONFIG` with `bridgeUrl` and `bridgeToken`. Connection indicator shows: CONNECTED (auth probe + health both pass), AUTH ERROR (401/403 on GET /sessions), GATEWAY DOWN, UNREACHABLE, or NOT CONNECTED (no config).
-- **Cancel** — Back key cancels in-flight server request using `"cancelling"` state; poll continues until server confirms, then transitions to `"cancelled"`. Cancel POST body carries `{turnRequestId}` to target only the current run.
-- **TTS** — assistant replies are serialized in a queue bound to their session. Replay (5 key / softkeys) inserts at queue head without discarding other sessions' queued items. TTS is inhibited while recording; resumes when recording stops.
-- **Persistence** — sessions stored in `localStorage` key `klaus.sessions.v2`. Migrates legacy `v1` key. Persisted store capped at 1 MiB total (trims oldest messages first, keeps all IDs and metadata). Per-session cap: 128 messages, 64 k aggregate chars.
-- **Cold start** — pending/uncertain/cancelling sessions resume polling on reload.
+```
++------------------------------+
+|2/3 Shopping list            ●|  top bar: chat n/m, title, connection dot
+|                              |
+|            [what's on it?]   |  your turns: right, green
+| [Milk, eggs and coffee.]     |  Klaus: left, dark
+|            [add bread]       |  typed text echoed while pending
+| [thinking ··· 0:12]          |  animated pending bubble
+|                              |
+| Request cancelled.           |  one-line notice (only when needed)
+|[Type: left key · Talk: OK   ]|  composer
+| Type        Talk        Menu |  softkeys follow the state
++------------------------------+
+```
+
+The connection dot is green when connected, amber when the gateway is down, red for auth/network errors and grey when no bridge is configured.
 
 ## Keys
 
+Softkey labels per state:
+
+| State | Left | Centre | Right |
+|---|---|---|---|
+| Idle | Type | Talk | Menu |
+| Recording | Cancel | Pause | elapsed `0:07` |
+| Paused | Delete | Resume (Send if the recorder cannot pause) | Send |
+| Typing | Clear | Send | Voice |
+| Rename | Clear | Save | Cancel |
+| Menu / chat list | Close | Select / Open | |
+| Archive confirm | Cancel | Archive | |
+
+Idle keys:
+
 | Key | Action |
 |-----|--------|
-| Centre / Enter | Record / stop recording |
-| Back / Escape | Cancel request or archive confirmation |
-| ← / → | Navigate open sessions (skips archived) |
-| ↑ / ↓ | Scroll transcript |
-| 3 | New session |
-| 5 / softkeys | Replay last reply (TTS) or recorded audio |
-| 7 | Archive session (two-press confirm) |
+| Centre (OK) | Start recording |
+| SoftLeft | Focus the composer (typing) |
+| SoftRight | Menu: New chat, Rename, Archive (confirm), Retry last, Read aloud on/off |
+| ↑ / ↓ | Focus previous / next message (full-row highlight). ↓ past the newest returns to live |
+| ← / →, 4 / 6 | Previous / next open chat (wraps, skips archived) |
+| 1 / 9 | Oldest / newest message |
+| 2 / 8 | Page up / down |
+| 5 | Read the focused message aloud (latest reply if none); plays your last clip if there is no reply; again stops playback |
+| 0 | Toggle auto read-aloud for new replies (persisted) |
+| # | Chat list overlay |
+| 3 | New chat |
+| 7 | Archive chat (confirm with OK or 7, Back cancels) |
+| Backspace | Cancel the pending request, else discard an unsent clip, else clear message focus, else let KaiOS close the app |
+
+While typing, digits and Backspace go to the input; Enter or Call sends a JSON `{text}` turn; Backspace on an empty input (or Escape) leaves typing.
+
+While recording or paused:
+
+| Key | Recording | Paused |
+|-----|-----------|--------|
+| Centre (OK) | Pause (status shows `Paused 0:07`) | Resume; sends instead when the recorder has no `pause()` |
+| Call (green) | Send | Send |
+| SoftRight | | Send (fallback if the system reserves Call) |
+| SoftLeft | Cancel (discard) | Delete (discard) |
+| Backspace | Discard; clips over 3 s ask for a second Backspace | Same |
+
+When Gecko's `MediaRecorder.pause()` is missing, Pause stops the recorder and keeps the clip; it is only uploaded on Send. The timer excludes paused time.
+
+## Behaviour
+
+- **Sessions**: up to 128 chats (open + archived). Archived chats are hidden from navigation but keep polling and speaking.
+- **Pending turns**: a thinking bubble shows `sending`/`thinking`/`cancelling` with an elapsed timer. Polling backs off from 1.5 s to 8 s and stops after `pollTimeoutMs` (default 180000) with "no reply yet"; Menu › Retry last resumes polling.
+- **Transcript**: new messages are appended without re-rendering; scroll position is preserved unless you were already at the bottom.
+- **Unsent clips**: offline or failed uploads are kept in IndexedDB and retried automatically after a successful connection probe, or with Menu › Retry last. Retry last also resends the last typed message after a failure.
+- **Cancel**: Back fires `POST .../cancel` with `{turnRequestId}`; polling continues until the server confirms.
+- **TTS**: replies are queued per session. Danish text (æøå or common Danish words) uses a `da-*` voice when installed, otherwise English.
+- **Persistence**: `localStorage` key `klaus.sessions.v2` (migrates `v1`), capped at 1 MiB by trimming oldest messages. Setting `klaus.autoread`.
+
+## Source layout
+
+| File | Purpose |
+|---|---|
+| `keys.ts` | Pure key map, softkey labels, focus/backoff/time/language helpers (unit tested) |
+| `storage.ts` | Session model, localStorage persistence, IndexedDB clip store |
+| `api.ts` | mozSystem XHR and connection probe |
+| `tts.ts` | Serialized speech queue |
+| `ui.ts` | DOM rendering (textContent only) |
+| `app.ts` | Controller: recording, turns, polling, menus and key dispatch |
 
 ## Build
 
-Run `./build.sh` to type-check the ES5 app, validate the manifest, and build `klaus-audio-proof.zip`.
+`./build.sh [output.zip]` type-checks and concatenates the files above into an ES5 `app.js`, validates the manifest and builds the package. `app.js` is generated and not committed. For a connected package set `NOKIA_BRIDGE_URL` and `NOKIA_CONFIG_FILE` (see `config.js`); optional `NOKIA_POLL_TIMEOUT_MS` overrides the poll timeout.
 
 ```
-node tests/nokia-audio.cjs      # audio lifecycle
+node tests/nokia-audio.cjs      # audio lifecycle (also exports the fake-DOM harness)
 node tests/nokia-sessions.cjs   # session switch/create/reload
-node tests/nokia-connection.cjs # bridge, TTS, archive (41 tests)
+node tests/nokia-connection.cjs # bridge, TTS, archive
+node tests/nokia-chat-ui.cjs    # softkeys, pause/resume/Call send, typing, menu, key map
 ```
 
 ## Notes
 
-- Requires KaiOS privileged app (`type: "privileged"`, `permissions.systemXHR`) — see `manifest.webapp`.
-- `config.js` is excluded from the public zip; it is injected at deploy time with real bridge credentials.
-- The source `app.ts` is TypeScript; `app.js` is the hand-maintained ES5 compiled output (no build toolchain on device).
+- Requires a privileged install (`type: "privileged"`, `permissions.systemXHR`); see `manifest.webapp`.
+- Device behaviour (Call key delivery, MediaRecorder.pause, IndexedDB, voice list, composer focus) is covered by offline tests only; verify on the handset.

@@ -28,7 +28,7 @@ Three components:
 | Component | Path | Purpose |
 |---|---|---|
 | `nokia-bridge` | `configs/nokia-bridge/` | Node.js loopback server — translates phone HTTP into signed WebSocket gateway calls |
-| `nokia-klaus` | `configs/nokia-klaus/` | KaiOS voice app — record, send, display reply, TTS |
+| `nokia-klaus` | `configs/nokia-klaus/` | KaiOS chat app: talk or type, chat bubbles, TTS |
 | `nokia-launcher` | `configs/nokia-launcher/` | KaiOS launcher — quick access to Klaus, Phone, SMS |
 
 ## Quickstart
@@ -50,17 +50,24 @@ See [docs/setup.md](docs/setup.md) for full setup including provisioning, pairin
 
 ## Controls
 
-Key bindings on the KaiOS voice app (`nokia-klaus`):
+Key bindings on the KaiOS voice app (`nokia-klaus`). The softkey bar always shows the current labels; full table in [configs/nokia-klaus/README.md](configs/nokia-klaus/README.md).
 
 | Key | Action |
 |---|---|
-| **Centre** (Enter) | Start recording / stop and send |
-| **Backspace** | Cancel active request or discard recording |
-| **5** / SoftLeft / SoftRight | Replay last reply |
-| **3** | New conversation session |
-| **←** / **→** (ArrowLeft / ArrowRight) | Switch between sessions |
-| **↑** / **↓** (ArrowUp / ArrowDown) | Scroll transcript |
-| **7** | Archive current session (confirm with second **7**) |
+| **Centre** (OK) | Start recording; again to pause / resume |
+| **Call** (green) | Send the clip or typed text (SoftRight also sends while paused) |
+| **Backspace** (recording) | Discard the clip (asks twice over 3 s) |
+| **SoftLeft** | Type a message (Enter or Call sends) |
+| **SoftRight** | Menu: New chat, Rename, Archive, Retry last, Read aloud on/off |
+| **↑** / **↓** | Focus previous / next message |
+| **←** / **→**, **4** / **6** | Switch chat |
+| **1** / **9** | Oldest / newest message |
+| **2** / **8** | Page up / down |
+| **5** | Read the focused (or latest) reply aloud |
+| **0** | Toggle auto read-aloud |
+| **#** | Chat list |
+| **3** / **7** | New chat / archive chat (with confirm) |
+| **Backspace** | Cancel the pending request or unsent clip; otherwise exits |
 
 Key bindings on the launcher (`nokia-launcher`):
 
@@ -70,7 +77,7 @@ Key bindings on the launcher (`nokia-launcher`):
 | **2** | Open Phone (dial activity) |
 | **3** | Open SMS |
 | **↑** / **↓** | Navigate |
-| **Enter** | Launch selected app |
+| **Enter** / SoftLeft (Select) | Launch selected app |
 
 ## Architecture
 

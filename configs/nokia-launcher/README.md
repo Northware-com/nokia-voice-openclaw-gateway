@@ -8,7 +8,7 @@ A minimal KaiOS 2.5.4 / Gecko 48 homescreen with three navigation choices: Klaus
 
 Klaus is the local audio-proof app, not a live Klaus agent. This launcher provides navigation only; it does not disable, block, or otherwise enforce restrictions on other apps or device features. It makes no network requests, obtains no tokens, initiates no calls, requests no microphone access, reads no files, and does not modify stock applications or settings.
 
-Use Up/Down to move, Enter to open the highlighted choice, or 1/2/3 to immediately open Klaus/Phone/SMS. Large touch choices are also available. Errors are shown in the status area; the launcher reports when app discovery is still in progress, fails, or a choice is not installed.
+Use Up/Down to move, Enter or SoftLeft (Select) to open the highlighted choice, or 1/2/3 to immediately open Klaus/Phone/SMS. Large touch choices are also available. There is no Back softkey: the launcher is the home screen, so the right softkey is intentionally blank. Errors are shown in the status area; the launcher reports when app discovery is still in progress, fails, or a choice is not installed.
 
 ## Build
 

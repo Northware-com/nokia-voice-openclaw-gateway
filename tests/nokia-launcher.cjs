@@ -54,6 +54,8 @@ function harness() {
   assert.equal(h.activities.length, 0);
   h.key('ArrowDown', 40); h.key('Enter', 13);
   assert.deepEqual(h.calls, ['Klaus', 'SMS', 'Klaus'], 'Selection must wrap to Klaus');
+  h.key('SoftLeft', 0);
+  assert.deepEqual(h.calls, ['Klaus', 'SMS', 'Klaus', 'Klaus'], 'SoftLeft (Select) launches the highlighted app');
   h.key('ArrowUp', 38);
   assert.equal(h.buttons[2].attrs['aria-pressed'], 'true');
 }

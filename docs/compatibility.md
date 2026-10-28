@@ -12,12 +12,14 @@ No other KaiOS devices have been tested.
 
 The KaiOS app (`nokia-klaus`) targets **KaiOS 2.5 / Gecko 48**:
 
-- TypeScript compiled to **ES5** for maximum Gecko 48 compatibility.
+- TypeScript compiled to **ES5** for maximum Gecko 48 compatibility; the app is split into small namespace files concatenated by `tsc --outFile`.
+- Layout uses flexbox only (no `gap`, `box-shadow` or filters) and fonts of at least 12px for the 240x320 screen.
+- Unsent voice clips are kept in IndexedDB (`klaus-clips`) so they survive a reload; without IndexedDB they are kept in memory only.
 - Audio uses `navigator.getUserMedia` (not the modern `MediaDevices.getUserMedia`).
 - HTTP requests use `new XMLHttpRequest({mozSystem: true})` for privileged cross-origin
   access — this requires the `systemXHR` manifest permission and a certified or privileged
   app install.
-- Speech synthesis uses the Web Speech API (`SpeechSynthesisUtterance` / `speechSynthesis`). The tested phone exposed English, French, German, Spanish and Italian voices, but no Danish voice. The app selects English speech; Danish text may be pronounced poorly.
+- Speech synthesis uses the Web Speech API (`SpeechSynthesisUtterance` / `speechSynthesis`). The tested phone exposed English, French, German, Spanish and Italian voices, but no Danish voice. The app detects Danish text (æøå or common Danish words) and uses a `da-*` voice when one is installed, otherwise it falls back to English; on the tested phone Danish text is therefore still pronounced with the English voice.
 - `MediaRecorder` supplies an Ogg recording for upload. The bridge passes the audio into the gateway’s configured STT pipeline.
 - Session storage uses `localStorage`.
 

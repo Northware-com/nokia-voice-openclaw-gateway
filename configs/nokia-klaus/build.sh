@@ -23,7 +23,7 @@ if [ -n "${NOKIA_BRIDGE_URL:-}" ]; then
   done
 fi
 
-node "$TSC" --strict --ignoreDeprecations 6.0 --target ES5 --lib DOM,ES2015,ES2016 --skipLibCheck --outFile "$ROOT/app.js" "$ROOT/app.ts"
+node "$TSC" --strict --ignoreDeprecations 6.0 --target ES5 --lib DOM,ES2015,ES2016 --skipLibCheck --outFile "$ROOT/app.js" "$ROOT/keys.ts" "$ROOT/storage.ts" "$ROOT/api.ts" "$ROOT/tts.ts" "$ROOT/ui.ts" "$ROOT/app.ts"
 node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$ROOT/manifest.webapp"
 command -v zip >/dev/null 2>&1 || { echo "zip is required" >&2; exit 1; }
 
@@ -60,7 +60,13 @@ if [ -n "${NOKIA_BRIDGE_URL:-}" ]; then
     if (typeof token !== "string" || !/^[A-Za-z0-9_-]{32,128}$/.test(token)) throw new Error("Invalid device token");
     const parsed = new URL(url);
     if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error("Bridge URL must be HTTPS without credentials or query");
-    fs.writeFileSync(process.argv[1], "var NOKIA_RUNTIME_CONFIG = " + JSON.stringify({bridgeUrl: url.replace(/\/$/, ""), bridgeToken: token}) + ";\n", {mode: 0o600});
+    const runtime = {bridgeUrl: url.replace(/\/$/, ""), bridgeToken: token};
+    const timeout = process.env.NOKIA_POLL_TIMEOUT_MS;
+    if (timeout) {
+      if (!/^[0-9]{4,7}$/.test(timeout)) throw new Error("NOKIA_POLL_TIMEOUT_MS must be milliseconds (1000-9999999)");
+      runtime.pollTimeoutMs = Number(timeout);
+    }
+    fs.writeFileSync(process.argv[1], "var NOKIA_RUNTIME_CONFIG = " + JSON.stringify(runtime) + ";\n", {mode: 0o600});
   ' "$BLANK_CONFIG"
   (cd "$ROOT" && zip -q -j "$TMP/package.zip" manifest.webapp index.html style.css app.js "$BLANK_CONFIG")
 else

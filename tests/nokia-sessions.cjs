@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const {harness} = require('./nokia-audio.cjs');
 function record(h) {
-  h.key('Enter'); h.grant(); h.key('Enter');
+  h.key('Enter'); h.grant(); h.key('Call');
   const recorder = h.recorders.at(-1);
   recorder.ondataavailable({data: new Blob(['voice'])}); recorder.onstop();
   return h.nodes.player.src;
@@ -21,7 +21,7 @@ function record(h) {
   assert.deepEqual(h.revoked, [], 'Navigation must not discard recordings');
   const reload = harness(h.storage);
   assert.equal(reload.nodes['session-title'].textContent, 'Conversation 2', 'Active selection persists');
-  assert.equal(reload.nodes['session-index'].textContent, 'SESSION 2 / 2');
+  assert.equal(reload.nodes['session-index'].textContent, '2/2');
   assert.equal(reload.nodes.player.src, undefined, 'Only metadata persists, not audio');
   h.handlers.unload();
   assert.deepEqual(h.revoked.sort(), [first, second].sort());
@@ -32,7 +32,9 @@ function record(h) {
   h.key('Enter'); h.grant();
   const stale = h.recorders.at(-1);
   const lateData = stale.ondataavailable, lateStop = stale.onstop, lateError = stale.onerror;
-  h.key('3'); h.key('Enter'); h.grant();
+  h.key('3');
+  assert.equal(h.nodes['session-index'].textContent, '1/1', 'Digits are ignored while recording');
+  h.key('Backspace'); h.key('3'); h.key('Enter'); h.grant();
   lateData({data: new Blob(['old'])}); lateStop(); lateError();
   assert.equal(h.stopped, 2, 'Stale callbacks cannot stop new session microphone');
   h.key('Backspace'); h.key('ArrowLeft');
@@ -40,7 +42,7 @@ function record(h) {
 }
 {
   const h = harness();
-  h.key('Enter'); h.key('3'); h.grant();
+  h.key('Enter'); h.key('Backspace'); h.key('3'); h.grant();
   assert.equal(h.recorders.length, 0, 'Late permission grant cannot attach to new session');
   assert.equal(h.stopped, 1);
 }
@@ -86,7 +88,7 @@ for (const value of ['{broken', 'null', '[{"id":"x","title":"A"},{"id":"x","titl
   ]);
   const h = harness(v1Store);
   // Should have migrated both sessions
-  assert.equal(h.nodes['session-index'].textContent, 'SESSION 2 / 2', 'v1 active selection migrated');
+  assert.equal(h.nodes['session-index'].textContent, '2/2', 'v1 active selection migrated');
   assert.equal(h.nodes['session-title'].textContent, 'Old Chat 2', 'v1 active title migrated');
   // v2 key must now be written
   assert.ok(h.storage.get('klaus.sessions.v2'), 'v2 key written after migration');
@@ -110,14 +112,14 @@ for (const value of ['{broken', 'null', '[{"id":"x","title":"A"},{"id":"x","titl
 // H5: single session — Left/Right must explain rather than wrap
 {
   const h = harness();
-  assert.equal(h.nodes['session-index'].textContent, 'SESSION 1 / 1');
+  assert.equal(h.nodes['session-index'].textContent, '1/1');
   h.key('ArrowLeft');
   assert.ok(h.nodes.status.textContent.includes('Only one') || h.nodes.status.textContent.includes('Press 3'),
     'Single session Left must explain: ' + h.nodes.status.textContent);
   h.key('ArrowRight');
   assert.ok(h.nodes.status.textContent.includes('Only one') || h.nodes.status.textContent.includes('Press 3'),
     'Single session Right must explain: ' + h.nodes.status.textContent);
-  assert.equal(h.nodes['session-index'].textContent, 'SESSION 1 / 1', 'Index unchanged after single-session nav');
+  assert.equal(h.nodes['session-index'].textContent, '1/1', 'Index unchanged after single-session nav');
 }
 
 console.log('Nokia session switch/create/reload and media isolation checks passed');
