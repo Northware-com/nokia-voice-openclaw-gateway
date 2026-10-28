@@ -1,0 +1,27 @@
+{
+  "name": "nokia-voice-openclaw-gateway",
+  "version": "0.1.0",
+  "description": "Nokia KaiOS voice assistant bridge to OpenClaw gateway — TypeScript bridge, KaiOS apps, and offline test suites",
+  "license": "MIT",
+  "author": "Lucas Hanson",
+  "private": false,
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "bash configs/nokia-bridge/build.sh && bash configs/nokia-klaus/build.sh && bash configs/nokia-launcher/build.sh",
+    "build:bridge": "bash configs/nokia-bridge/build.sh",
+    "build:app": "bash configs/nokia-klaus/build.sh",
+    "build:launcher": "bash configs/nokia-launcher/build.sh",
+    "test": "npm run test:node && npm run test:python",
+    "test:node": "node tests/nokia-audio.cjs && node tests/nokia-sessions.cjs && node tests/nokia-connection.cjs && node tests/nokia-launcher.cjs && node tests/nokia-bridge.cjs",
+    "test:python": "python3 tests/nokia-policy.py && python3 tests/nokia-packaging.py"
+  },
+  "dependencies": {
+    "ws": "8.21.3"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "@types/node": "22.19.19"
+  }
+}

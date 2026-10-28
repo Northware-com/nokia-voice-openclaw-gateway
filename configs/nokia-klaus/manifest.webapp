@@ -1,0 +1,13 @@
+{
+  "name": "Klaus Audio Proof",
+  "description": "Voice session bridge to Klaus AI assistant",
+  "launch_path": "/index.html",
+  "type": "privileged",
+  "version": "0.2.0",
+  "developer": { "name": "Lucas Hanson" },
+  "permissions": {
+    "audio-capture": { "description": "Record audio only when requested" },
+    "audio-channel-content": {},
+    "systemXHR": {}
+  }
+}

@@ -1,0 +1,33 @@
+node_modules/
+
+# Compiled bridge output — generated, not maintained by hand
+configs/nokia-bridge/dist/
+configs/nokia-bridge/app.js
+
+# Compiled phone app output
+configs/nokia-klaus/app.js
+configs/nokia-launcher/app.js
+
+# Packaged phone zips — contain live credentials, never commit
+*.zip
+
+# Private runtime environment — contains bearer tokens and key paths
+.env
+.env.local
+.env.*.local
+
+# Runtime state files — contain private ed25519 keys and session registry
+runtime*.json
+device-identity.json
+provisioning.json
+recovery-outputs/
+private-keys/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+Thumbs.db

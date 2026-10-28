@@ -1,0 +1,12 @@
+{
+  "name": "Nokia Launcher",
+  "description": "Navigation-only launcher for Klaus, Phone, and SMS",
+  "launch_path": "/index.html",
+  "type": "certified",
+  "role": "homescreen",
+  "version": "0.1.0",
+  "developer": { "name": "Lucas Hanson" },
+  "permissions": {
+    "webapps-manage": {}
+  }
+}

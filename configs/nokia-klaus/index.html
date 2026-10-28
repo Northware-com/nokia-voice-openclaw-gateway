@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Klaus</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+</head>
+<body>
+  <main>
+    <header><span>ECORAY / KLAUS</span><span id="connection">NOT CONNECTED</span></header>
+    <section id="session-panel"><span id="session-index">SESSION 1 / 1</span><strong id="session-title">Conversation 1</strong></section>
+    <div id="transcript" role="log" aria-live="polite" aria-label="Transcript"></div>
+    <p id="status" role="status">Ready. Centre records; 5 replays; ↑↓ scroll.</p>
+    <p id="hint">← / → session · 3 new · 7 archive · ↑↓ scroll</p>
+    <audio id="player" hidden></audio>
+  </main>
+  <footer><span id="softkey">Replay</span><span>Centre · Record / Stop</span><span>5 · Replay</span></footer>
+  <script src="app.js"></script>
+</body>
+</html>

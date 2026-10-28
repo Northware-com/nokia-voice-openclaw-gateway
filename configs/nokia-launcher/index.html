@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Nokia Launcher</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main aria-label="Launcher">
+    <h1>Choose app</h1>
+    <p id="status" role="status" aria-live="polite">Loading apps…</p>
+    <ol id="choices" aria-label="Available apps">
+      <li><button type="button" data-index="0" aria-pressed="true">Klaus</button></li>
+      <li><button type="button" data-index="1" aria-pressed="false">Phone</button></li>
+      <li><button type="button" data-index="2" aria-pressed="false">SMS</button></li>
+    </ol>
+    <div class="softkeys" aria-hidden="true"><span>Select</span><span>Back</span></div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
