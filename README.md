@@ -131,6 +131,10 @@ See [docs/security.md](docs/security.md) for the full threat model.
 - [Voice app](configs/nokia-klaus/README.md)
 - [Launcher app](configs/nokia-launcher/README.md)
 
+## Acknowledgements
+
+The handset UI’s dark teal and mint palette was inspired by EcoRay’s visual identity. The original app header retains the **ECORAY / KLAUS** label. This is Lucas Hanson’s personal open-source project, not an official EcoRay product or a claim of company endorsement.
+
 ## License
 
 [MIT](LICENSE) © 2026 Lucas Hanson
