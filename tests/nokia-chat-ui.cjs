@@ -60,7 +60,7 @@ function record(h) {
   assert.equal(K.mapKey('menu', 'Backspace', true), 'close');
   assert.equal(K.mapKey('confirm', '7', true), 'select');
   assert.deepEqual(Array.from(K.softkeysFor('idle', '')), ['Type', 'Talk', 'Menu']);
-  assert.deepEqual(Array.from(K.softkeysFor('recording', '0:07')), ['Cancel', 'Pause', '0:07']);
+  assert.deepEqual(Array.from(K.softkeysFor('recording', '0:07')), ['Delete', 'Pause', 'Send'], 'clip states share Delete/Send');
   assert.deepEqual(Array.from(K.softkeysFor('paused', '0:07', true)), ['Delete', 'Resume', 'Send']);
   assert.deepEqual(Array.from(K.softkeysFor('paused', '0:07', false)), ['Delete', 'Send', 'Send']);
   assert.deepEqual(Array.from(K.softkeysFor('typing', '')), ['Clear', 'Send', 'Voice']);
@@ -90,9 +90,12 @@ function record(h) {
   assert.deepEqual(h.softkeys(), ['Type', 'Talk', 'Menu']);
   assert.ok(h.nodes.status.hidden, 'No hint/status line when idle');
   h.key('Enter');
-  assert.deepEqual(h.softkeys(), ['Cancel', 'Pause', '0:00']);
+  assert.deepEqual(h.softkeys(), ['Delete', 'Pause', 'Send']);
+  assert.equal(h.banner(), '\u25cf Recording 0:00');
+  assert.equal(h.nodes.bar.className, 'rec');
+  assert.ok(h.composer.hidden, 'banner replaces the composer while recording');
   h.grant(); h.clock.t += 7000; tick(h);
-  assert.deepEqual(h.softkeys(), ['Cancel', 'Pause', '0:07'], 'recording timer is live');
+  assert.equal(h.banner(), '\u25cf Recording 0:07', 'recording timer is live');
   h.key('SoftLeft');
   assert.deepEqual(h.softkeys(), ['Type', 'Talk', 'Menu'], 'SoftLeft cancels recording');
   assert.equal(h.recorders[0].state, 'inactive');
@@ -121,13 +124,14 @@ function pausable(rec) {
   h.clock.t += 7000; h.key('Enter');
   assert.equal(rec.state, 'paused', 'Centre pauses');
   assert.deepEqual(h.softkeys(), ['Delete', 'Resume', 'Send']);
-  assert.equal(h.status(), 'Paused 0:07');
+  assert.equal(h.banner(), '\u275a\u275a Paused 0:07');
+  assert.equal(h.nodes.bar.className, 'paused', 'paused bar is distinct from recording');
   h.clock.t += 60000; tick(h);
-  assert.deepEqual(h.softkeys(), ['Delete', 'Resume', 'Send'], 'timer frozen while paused');
+  assert.equal(h.banner(), '\u275a\u275a Paused 0:07', 'timer frozen while paused');
   h.key('Enter');
   assert.equal(rec.state, 'recording', 'Centre resumes');
   h.clock.t += 2000; tick(h);
-  assert.deepEqual(h.softkeys(), ['Cancel', 'Pause', '0:09'], 'timer continues from paused time');
+  assert.equal(h.banner(), '\u25cf Recording 0:09', 'timer continues from paused time');
   h.key('Call');
   assert.equal(rec.state, 'inactive', 'Call stops to send');
   rec.ondataavailable({data: new Blob(['OggS'])}); rec.onstop();
@@ -155,7 +159,7 @@ function pausable(rec) {
   assert.equal(h.xhrRequests.filter(isTurn).length, 0, 'held clip is not sent yet');
   assert.ok(!h.xhrRequests.some(isCreate), 'no session created yet');
   assert.deepEqual(h.softkeys(), ['Delete', 'Send', 'Send']);
-  assert.equal(h.status(), 'Paused 0:04');
+  assert.equal(h.banner(), '\u275a\u275a Paused 0:04');
   h.key('Call');
   respond(h, last(h, isCreate), 201, {id: 'srv-held'});
   assert.ok(last(h, isTurn), 'Call sends the held clip');
@@ -188,7 +192,8 @@ function pausable(rec) {
   h.key('Enter'); h.grant(); h.clock.t += 5000;
   h.key('Backspace');
   assert.equal(h.recorders[1].state, 'recording', 'long clip needs confirmation');
-  assert.match(h.status(), /Back again/);
+  assert.match(h.banner(), /Delete 0:0\d clip\? Back again/);
+  assert.match(h.nodes.banner.className, /discard/);
   h.key('Backspace');
   assert.equal(h.recorders[1].state, 'inactive', 'second Backspace discards');
   assert.equal(h.status(), 'Recording discarded.');
@@ -383,6 +388,85 @@ function pausable(rec) {
   assert.equal(placeholder().hidden, false, 'the hint returns once nothing is pending');
   h.key('3');
   assert.equal(placeholder().hidden, false, 'a new chat shows the hint');
+}
+
+// ── At-a-glance state: banner, notice colours, chat list markers, key feedback ──
+{
+  const K = harness().context.Klaus;
+  const b = st => { const r = K.stateBanner(st); return r && r.kind + '|' + r.icon + ' ' + r.text; };
+  assert.equal(b({mode: 'recording', elapsed: '0:05'}), 'rec|● Recording 0:05');
+  assert.equal(b({mode: 'recording', elapsed: '0:05', notes: true}), 'rec|● Note 0:05');
+  assert.equal(b({mode: 'paused', elapsed: '0:05'}), 'paused|❚❚ Paused 0:05');
+  assert.equal(b({mode: 'paused', elapsed: '0:05', discardArmed: true}), 'discard|✕ Delete 0:05 clip? Back again');
+  assert.equal(b({mode: 'idle', elapsed: '', sending: true}), 'sending|↑ Sending…');
+  assert.equal(b({mode: 'idle', elapsed: '', queued: 1, connected: false}), 'offline|↻ Offline · message queued');
+  assert.equal(b({mode: 'idle', elapsed: '', queued: 2, connected: true, notes: true}), 'queued|↻ 2 notes queued · sending soon');
+  assert.equal(b({mode: 'idle', elapsed: '', failed: true, queued: 1}), 'failed|! Failed · Menu › Retry last', 'failure outranks queue');
+  assert.equal(b({mode: 'idle', elapsed: '', stalled: true}), 'failed|! No reply yet · Menu › Retry');
+  assert.equal(b({mode: 'idle', elapsed: ''}), null, 'nothing to report: composer hint instead');
+  assert.equal(b({mode: 'menu', elapsed: '', failed: true}), null, 'overlays carry their own state');
+  assert.equal(K.noticeKind('Microphone unavailable or permission denied.'), 'error');
+  assert.equal(K.noticeKind('Offline. Messages will queue.'), 'warn');
+  assert.equal(K.noticeKind('Renamed.'), 'ok');
+  assert.equal(K.noticeKind('Reading aloud…'), 'info');
+  assert.equal(K.sessionListLabel('Shop', false, true, true), '! Shop');
+  assert.equal(K.sessionListLabel('Shop', true, false, false), '… Shop');
+  assert.equal(K.sessionListLabel('Shop', false, false, true), '↻ Shop');
+  assert.equal(K.sessionListLabel('Shop', false, false, false), 'Shop');
+  assert.equal(K.mapKey('recording', 'SoftRight', true), 'send', 'right softkey sends in both clip states');
+}
+{
+  // SoftRight sends a live recording; every mapped key lights its softkey until release.
+  const h = harness(new Map(), BRIDGE);
+  h.key('Enter');
+  assert.equal(h.nodes['sk-center'].className, 'press', 'OK lights the centre softkey');
+  h.handlers.keyup({key: 'Enter'});
+  assert.equal(h.nodes['sk-center'].className, '');
+  h.grant(); h.clock.t += 2000;
+  h.key('Call');
+  assert.equal(h.nodes['sk-right'].className, 'press', 'Call lights the Send softkey');
+  h.handlers.keyup({key: 'Call'});
+  h.recorders[0].ondataavailable({data: new Blob(['OggS'])}); h.recorders[0].onstop();
+  respond(h, last(h, isCreate), 201, {id: 'srv-sk'});
+  respond(h, last(h, isTurn), 202, {runId: 'run-sk', state: 'pending'});
+  h.key('Enter'); h.handlers.keyup({key: 'Enter'});
+  h.key('3'); // a new idle chat to record in
+  h.key('Enter'); h.grant();
+  h.key('SoftRight');
+  assert.equal(h.recorders.at(-1).state, 'inactive', 'SoftRight sends while recording');
+  h.key('4');
+  assert.equal(h.nodes['sk-left'].className, '', 'digits do not light a softkey');
+}
+{
+  // Offline clip: queued banner instead of the composer; typing brings the composer back.
+  const h = harness();
+  record(h);
+  assert.equal(h.banner(), '↻ Offline · message queued');
+  assert.ok(h.composer.hidden);
+  h.key('SoftLeft');
+  assert.equal(h.banner(), '', 'typing hides the banner');
+  assert.ok(!h.composer.hidden);
+  assert.equal(h.composer.getAttribute('placeholder'), 'Type a message');
+  h.key('Escape');
+  assert.equal(h.composer.getAttribute('placeholder'), 'OK: talk · Left: type');
+  h.key('SoftRight');
+  h.key('ArrowDown'); h.key('ArrowDown'); h.key('Enter');
+  assert.match(h.nodes['overlay-list'].textContent, /OK archives, Back keeps it/, 'confirm explains itself on screen');
+  assert.equal(h.nodes['overlay-list'].children[0].className, 'note');
+  h.key('Backspace');
+  h.key('#');
+  assert.equal(h.nodes['overlay-list'].children[0].textContent, '↻ Conversation 1', 'chat list marks queued chats');
+}
+{
+  // Notice colours and the connection word.
+  const h = harness();
+  h.key('SoftLeft'); h.key('Enter');
+  assert.equal(h.status(), 'Type a message first.');
+  assert.equal(h.nodes.status.className, 'warn');
+  h.context.Klaus.uiConn('UNREACHABLE');
+  assert.equal(h.nodes.connection.textContent, '● offline');
+  h.context.Klaus.uiConn('CONNECTED');
+  assert.equal(h.nodes.connection.textContent, '●');
 }
 
 console.log('Nokia chat UI, softkey, typing, menu and key-map checks passed');

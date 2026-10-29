@@ -113,6 +113,7 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   };
   const grant = () => requests.at(-1).ok({getTracks() {return [{stop() {stopped++;}}];}});
   const status = () => nodes.status.textContent;
+  const banner = () => (nodes.banner.hidden ? '' : nodes.banner.textContent);
   const transcript = () => nodes.transcript.textContent;
   const thinking = () => (nodes.thinking.hidden ? '' : nodes.thinking.textContent);
   const softkeys = () => ['sk-left', 'sk-center', 'sk-right'].map(id => nodes[id].textContent);
@@ -121,7 +122,7 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   const firePrime = () => Object.keys(primeTimers).forEach(id => { if (primeTimers[id].active) { primeTimers[id].active = false; primeTimers[id].fn(); } });
   const activePolls = () => Object.keys(pollTimers).filter(id => pollTimers[id].active);
   return {context, nodes, requests, xhrRequests, recorders, key, grant, handlers, storage, revoked, utterances,
-    intervals: pollTimers, pollTimers, tickers, clock, status, transcript, thinking, softkeys, conn, activePolls, composer, firePrime, primeTimers,
+    intervals: pollTimers, pollTimers, tickers, clock, status, banner, transcript, thinking, softkeys, conn, activePolls, composer, firePrime, primeTimers,
     get stopped() {return stopped;}};
 }
 {
