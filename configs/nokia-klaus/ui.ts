@@ -386,6 +386,46 @@ namespace Klaus {
     show(overlayEl, true);
   }
 
+  // Search: a query row plus one result per chat (title or first matching message).
+  // Rows reuse the chat-list two-line layout so the reading feel is the same.
+  export function uiSearch(query: string, rows: Array<{ title: string; match: string; inTitle: boolean }>, selected: number): void {
+    overlayTitle.textContent = "Search chats";
+    while (overlayList.firstChild) overlayList.removeChild(overlayList.firstChild);
+    var qrow = document.createElement("div");
+    qrow.className = "squery";
+    qrow.appendChild(span("sq", "> "));
+    qrow.appendChild(span("sqtext", query || "type to search…"));
+    overlayList.appendChild(qrow);
+    if (!query) {
+      var help = document.createElement("p");
+      help.className = "snote";
+      help.textContent = "Letters, digits and Back; OK opens, SoftLeft clears.";
+      overlayList.appendChild(help);
+    } else if (!rows.length) {
+      var nomatch = document.createElement("p");
+      nomatch.className = "snote warn";
+      nomatch.textContent = "No match for \u201c" + clipLine(query, 20) + "\u201d";
+      overlayList.appendChild(nomatch);
+    }
+    for (var i = 0; i < rows.length; i++) {
+      var row = document.createElement("div");
+      row.className = "item chat sres" + (i === selected ? " sel" : "");
+      var top = document.createElement("div");
+      top.className = "l1";
+      var t = span("t", rows[i].title);
+      if (rows[i].inTitle) t.className += " inTitle";
+      top.appendChild(t);
+      row.appendChild(top);
+      var pv = document.createElement("div");
+      pv.className = "pv";
+      pv.textContent = rows[i].match;
+      row.appendChild(pv);
+      overlayList.appendChild(row);
+      if (i === selected) { try { (row as any).scrollIntoView(false); } catch (_e) { /* old engines */ } }
+    }
+    show(overlayEl, true);
+  }
+
   export function uiOverlayScroll(delta: number): void {
     overlayList.scrollTop = Math.max(0, overlayList.scrollTop + delta);
   }

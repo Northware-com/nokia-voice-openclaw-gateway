@@ -1,11 +1,12 @@
 // Pure key-map and presentation logic. No DOM access, so tests can call it directly.
 namespace Klaus {
-  export type Mode = "idle" | "recording" | "paused" | "typing" | "rename" | "menu" | "sessions" | "confirm" | "quick" | "help" | "meeting" | "today";
+  export type Mode = "idle" | "recording" | "paused" | "typing" | "rename" | "menu" | "sessions" | "search" | "confirm" | "quick" | "help" | "meeting" | "today";
 
   export type Action =
     "none" | "type" | "talk" | "menu" | "back" | "cancel" | "send" | "pause" | "resume" | "discard" | "clear" | "voice" |
     "close" | "select" | "up" | "down" | "prev" | "next" | "top" | "bottom" |
-    "pageUp" | "pageDown" | "read" | "autoread" | "sessions" | "new" | "archive" | "exitInput" | "notes" | "quick" | "pick" | "dial" | "stopMeeting";
+    "pageUp" | "pageDown" | "read" | "autoread" | "sessions" | "new" | "archive" | "exitInput" | "notes" | "quick" | "pick" | "dial" | "stopMeeting" |
+    "search" | "typeChar" | "delChar";
 
   // Clips longer than this need a second Backspace before they are discarded.
   export var DISCARD_CONFIRM_MS = 3000;
@@ -68,8 +69,18 @@ namespace Klaus {
         if (key === "Enter" || key === " " || key === "SoftLeft" || key === "Backspace" || key === "Escape") return "close";
         return "none";
       case "sessions":
+        if (key === "SoftRight") return "search";
         if (key === "1" || key === "2" || key === "3" || key === "4") return "dial";
         return LIST_KEYS[key] || "none";
+      case "search":
+        if (key === "SoftRight" || key === "Enter" || key === "Call") return "select";
+        if (key === "SoftLeft") return "clear";
+        if (key === "ArrowUp") return "up";
+        if (key === "ArrowDown") return "down";
+        if (key === "Backspace") return inputEmpty ? "close" : "delChar";
+        if (key === "Escape" || key === "*") return "close";
+        if (key.length === 1) return /^[a-z0-9'%,.;:?\"()\-\sæøåÆØÅöÖüÜêÉ]+$/i.test(key) ? "typeChar" : "none";
+        return "none";
       case "quick":
         if (/^[1-9]$/.test(key)) return "pick";
         return LIST_KEYS[key] || "none";
@@ -92,7 +103,8 @@ namespace Klaus {
       case "typing": return ["Clear", "Send", "Voice"];
       case "rename": return ["Clear", "Save", "Cancel"];
       case "menu": return ["Close", "Select", ""];
-      case "sessions": return ["Close", "Open", ""];
+      case "sessions": return ["Close", "Open", "Search"];
+      case "search": return ["Clear", "Open", ""];
       case "confirm": return ["Cancel", "Archive", ""];
       case "quick": return ["Close", "Send", ""];
       case "help": return ["Close", "OK", ""];
@@ -169,6 +181,81 @@ namespace Klaus {
     return cut.replace(/[\s,.;:!?-]+$/, "") + "…";
   }
 
+  // ── Local chat search ─────────────────────────────────────────────────────
+  // Case- and accent-insensitive matching for the phone-stored chats. Folding keeps
+  // an index map (to) so a hit in folded text points back to the original string.
+  var FOLD_TABLE: string[][] = [
+    ["à", "a"], ["á", "a"], ["â", "a"], ["ã", "a"], ["ä", "a"], ["å", "a"],
+    ["À", "a"], ["Á", "a"], ["Â", "a"], ["Ã", "a"], ["Ä", "a"], ["Å", "a"],
+    ["æ", "ae"], ["Æ", "ae"], ["ß", "ss"],
+    ["ç", "c"], ["Ç", "c"],
+    ["è", "e"], ["é", "e"], ["ê", "e"], ["ë", "e"], ["È", "e"], ["É", "e"], ["Ê", "e"], ["Ë", "e"],
+    ["ì", "i"], ["í", "i"], ["î", "i"], ["ï", "i"], ["Ì", "i"], ["Í", "i"], ["Î", "i"], ["Ï", "i"],
+    ["ñ", "n"], ["Ñ", "n"], ["ð", "d"], ["Ð", "d"],
+    ["ò", "o"], ["ó", "o"], ["ô", "o"], ["õ", "o"], ["ö", "o"], ["ø", "o"],
+    ["Ò", "o"], ["Ó", "o"], ["Ô", "o"], ["Õ", "o"], ["Ö", "o"], ["Ø", "o"],
+    ["ù", "u"], ["ú", "u"], ["û", "u"], ["ü", "u"], ["Ù", "u"], ["Ú", "u"], ["Û", "u"], ["Ü", "u"],
+    ["ý", "y"], ["Ý", "y"], ["ÿ", "y"]
+  ];
+  var FOLD_MAP: { [k: string]: string } = {};
+  for (var FOLD_I = 0; FOLD_I < FOLD_TABLE.length; FOLD_I++) FOLD_MAP[FOLD_TABLE[FOLD_I][0]] = FOLD_TABLE[FOLD_I][1];
+
+  export function searchFold(text: string): { text: string; to: number[] } {
+    var s = String(text);
+    var out = "";
+    var to: number[] = [];
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charAt(i);
+      var f = FOLD_MAP[c] !== undefined ? FOLD_MAP[c] : c.toLowerCase();
+      for (var j = 0; j < f.length; j++) { out += f.charAt(j); to.push(i); }
+    }
+    return { text: out, to: to };
+  }
+
+  export interface SearchHit { index: number; title: string; snippet: string; inTitle: boolean; }
+  export var SEARCH_LIMIT = 12;
+
+  // One hit per chat: titles first (exact, at a glance), then the first matching message.
+  // Archival chats are local but hidden from navigation, so they stay out of the results.
+  export function searchSessions(chats: Array<{ title: string; archived: boolean; updatedAt: number; messages: Array<{ role: string; text: string }> }>, query: string): SearchHit[] {
+    var q = searchFold(query).text.replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
+    if (!q) return [];
+    var hits: SearchHit[] = [];
+    for (var i = 0; i < chats.length; i++) {
+      var c = chats[i];
+      if (c.archived) continue;
+      if (searchFold(c.title).text.indexOf(q) >= 0) {
+        hits.push({ index: i, title: c.title, snippet: "Title", inTitle: true });
+        continue;
+      }
+      for (var m = 0; m < c.messages.length; m++) {
+        var n = searchFold(c.messages[m].text);
+        var at = n.text.indexOf(q);
+        if (at < 0) continue;
+        var origAt = n.to[at];
+        var start = Math.max(0, origAt - 16);
+        var end = Math.min(c.messages[m].text.length, origAt + q.length + 24);
+        var slice = c.messages[m].text.slice(start, end).replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
+        hits.push({ index: i, title: c.title, snippet: (start > 0 ? "…" : "") + slice, inTitle: false });
+        break; // one hit per chat
+      }
+    }
+    hits.sort(function (a: SearchHit, b: SearchHit): number {
+      if (a.inTitle !== b.inTitle) return a.inTitle ? -1 : 1;
+      return chats[b.index].updatedAt - chats[a.index].updatedAt;
+    });
+    return hits.slice(0, SEARCH_LIMIT);
+  }
+
+  // First message whose text contains the query (for focus after opening a hit), else -1.
+  export function searchMessageIndex(messages: Array<{ role: string; text: string }>, query: string): number {
+    var q = searchFold(query).text.replace(/\s+/g, " ");
+    for (var i = 0; i < messages.length; i++) {
+      if (searchFold(messages[i].text).text.indexOf(q) >= 0) return i;
+    }
+    return -1;
+  }
+
   // Automatic chat title: the first thing you said (typed or transcribed), else the first
   // reply when the chat opened with a clip that has no transcript; "" while empty.
   export function autoTitle(messages: Array<{ role: string; text: string; voice?: boolean }>): string {
@@ -239,6 +326,7 @@ namespace Klaus {
     "5  read aloud / stop",
     "0  quick replies",
     "#  chats · 1-4 dial",
+    "list right key: search",
     "3  new · 7  archive",
     "*  notes (0 = meeting)",
     "Back  cancel / discard"

@@ -295,7 +295,7 @@ function pausable(rec) {
   h.key('6'); h.key('6');
   assert.equal(h.nodes['session-index'].textContent, '1/3', '6 wraps');
   h.key('#');
-  assert.deepEqual(h.softkeys(), ['Close', 'Open', '']);
+  assert.deepEqual(h.softkeys(), ['Close', 'Open', 'Search'], 'the right key opens chat search');
   const chats = () => h.nodes['overlay-list'].children.filter(c => /\bitem\b/.test(c.className));
   assert.equal(chats().length, 3);
   assert.equal(chats()[0].className, 'item chat sel', 'list starts on current chat, most recent first');

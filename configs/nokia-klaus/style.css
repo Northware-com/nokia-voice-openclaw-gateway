@@ -116,6 +116,14 @@ body { display: flex; flex-direction: column; position: relative; }
 .chat.queued .pv { color: #ffc94d; }
 .chat.sel .tm, .chat.sel .pv { color: #063b2a; }
 
+/* Search (chat list, right softkey): query row, then two-line hits like the chat list */
+.squery { padding: 7px 8px; font: bold 16px sans-serif; background: #0d2020; border-bottom: 1px solid #075555; white-space: nowrap; overflow: hidden; }
+.squery .sq { color: #1bfc9e; }
+.squery .sqtext { color: #f0fff8; }
+.snote { margin: 10px 10px; font-size: 14px; line-height: 18px; color: #8fd9bd; }
+.snote.warn { color: #ffc94d; }
+.item.sres .t.inTitle { color: #1bfc9e; }
+
 /* Numbered lists (quick replies): nine compact rows fit without scrolling */
 .item.num { padding: 3px 8px; line-height: 20px; border-bottom: 0; }
 .num .key { display: inline-block; width: 20px; margin-right: 6px; text-align: center; font-weight: bold; color: #051111; background: #1bfc9e; border-radius: 3px; }
@@ -145,6 +153,12 @@ body { display: flex; flex-direction: column; position: relative; }
 .trow.none { color: #8aa9a0; font-style: italic; }
 .trow:not(.past):not(.none) .tm + .tx { color: #e7fff5; }
 
+.night .snote { color: #c99a6b; }
+.night .snote.warn { color: #ffb000; }
+.night .squery { background: #0d0805; border-color: #4a2e14; }
+.night .squery .sq { color: #ffb36b; }
+.night .squery .sqtext { color: #ffe2c2; }
+.night .item.sres .t.inTitle { color: #ffb36b; }
 /* Large text (Menu › Large text): reading text grows, chrome stays put so the layout holds */
 body.large .bubble { font-size: 19px; line-height: 1.25; }
 body.large .viz .vline { font-size: 15px; line-height: 20px; height: 20px; }

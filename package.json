@@ -15,7 +15,7 @@
     "build:app": "bash configs/nokia-klaus/build.sh",
     "build:launcher": "bash configs/nokia-launcher/build.sh",
     "test": "npm run test:node && npm run test:python",
-    "test:node": "node tests/nokia-audio.cjs && node tests/nokia-sessions.cjs && node tests/nokia-connection.cjs && node tests/nokia-chat-ui.cjs && node tests/nokia-reliability.cjs && node tests/nokia-launcher.cjs && node tests/nokia-bridge.cjs && node tests/nokia-notes.cjs && node tests/nokia-quick-notes.cjs && node tests/nokia-chat-list.cjs && node tests/nokia-voice-transcript.cjs && node tests/nokia-quick-replies.cjs && node tests/nokia-read-aloud.cjs && node tests/nokia-speed-dial.cjs && node tests/nokia-polish.cjs && node tests/nokia-haptics.cjs && node tests/nokia-voice-commands.cjs && node tests/nokia-meeting.cjs && node tests/nokia-today.cjs && node tests/nokia-display.cjs && node tests/nokia-viz.cjs",
+    "test:node": "node tests/nokia-audio.cjs && node tests/nokia-sessions.cjs && node tests/nokia-connection.cjs && node tests/nokia-chat-ui.cjs && node tests/nokia-reliability.cjs && node tests/nokia-launcher.cjs && node tests/nokia-bridge.cjs && node tests/nokia-notes.cjs && node tests/nokia-quick-notes.cjs && node tests/nokia-chat-list.cjs && node tests/nokia-voice-transcript.cjs && node tests/nokia-quick-replies.cjs && node tests/nokia-read-aloud.cjs && node tests/nokia-speed-dial.cjs && node tests/nokia-polish.cjs && node tests/nokia-haptics.cjs && node tests/nokia-voice-commands.cjs && node tests/nokia-meeting.cjs && node tests/nokia-today.cjs && node tests/nokia-display.cjs && node tests/nokia-viz.cjs && node tests/nokia-search.cjs",
     "test:python": "python3 tests/nokia-policy.py && python3 tests/nokia-packaging.py"
   },
   "dependencies": {

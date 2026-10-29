@@ -68,6 +68,27 @@ Speed dial on the chat list:
 | 3 | The last chat you used before this one (archived chats are skipped) |
 | 4 | Today (dimmed unless the build has `NOKIA_NOTES_URL`), see below |
 
+### Search
+
+The **right softkey on the chat list** opens **Search chats**: a dedicated screen that looks through the chats already saved on the phone, with no server round-trip.
+
+```
++------------------------------+
+| Search chats                 |
+|> milk                        |  the query, one line
+| [What's on the shop…    ]    |  hit: chat title (mint when the
+|  Milk, eggs, coffee and…     |  match is in the title) + snippet
+| [No match for “zzz”]         |  amber when nothing matches
+| Clear        OPEN            |
++------------------------------+
+```
+
+- Type with the letters and digits, Backspace deletes, **SoftLeft (Clear)** wipes the query, **OK (Open)** opens the focused hit.
+- Matching is **case- and accent-insensitive** across chat titles and stored message text: `plover` finds `plöver`, `SHOPPING` finds `Shopping`, `Romo` finds `Rømø` (the Ø/Å/Æ/Ö/Ü/é table is folded on both sides, so one spelling finds the other).
+- **One hit per chat**: a title hit wins (labelled `Title`), otherwise the first matching message is quoted as a one-line snippet centred on the match. Results are capped at 12 (the screen height), archived chats are excluded, and text hits are newest-first.
+- **OK opens the chat and focuses the first matching message**, not just the top, so you land on the hit.
+- Purely local: search reads only the stored sessions (`klaus.sessions.v2`); nothing goes to the bridge. It lives behind one softkey on the chat list to stay out of the way; up/down move over the results, `*` or Backspace on an empty query returns to the chats.
+
 Chats named `Conversation N` take an automatic title from the first thing you said (typed, or the transcript when the bridge returns one), else from the first reply when the chat opened with an untranscribed clip; Menu › Rename fixes a title by hand and stops automatic titles for that chat.
 
 ## Keys
@@ -81,12 +102,13 @@ Softkey labels per state:
 | Paused | Delete | Resume (Send if the recorder cannot pause) | Send |
 | Typing | Clear | Send | Voice |
 | Rename | Clear | Save | Cancel |
-| Menu / chat list | Close | Select / Open | |
+| Menu / chat list | Close | Select / Open | Search (chat list) |
+| Search | Clear | Open | |
 | Keys screen | Close | OK | |
 | Today | Close | Update | |
 | Meeting | | Stop | (Stop) |
 
-On the chat list, 1-4 are speed dial (see Chat list).
+On the chat list, 1-4 are speed dial (see Chat list), and the right key opens Search (its own keys below).
 | Archive confirm | Cancel | Archive | |
 | Quick replies | Close | Send | |
 
@@ -106,6 +128,7 @@ Idle keys:
 | 5 | Read the focused message aloud (latest reply if none); a focused clip placeholder, or a chat with no reply, plays your last clip. While this chat is being read (banner `))) Reading · 5 stops`), 5 stops reading and drops queued replies; again stops playback |
 | 0 | Quick replies: 1-9 sends one at once (see below) |
 | # | Chat list (most recent first, with previews) |
+| Right softkey (chat list) | Search chats: case- and accent-insensitive over titles and stored text; OK opens the hit with its first match focused |
 | 3 | New chat |
 | 7 | Archive chat (confirm with OK or 7, Back cancels) |
 | * | Notes for Plato (see below); SoftRight (Chat), Back or * returns |

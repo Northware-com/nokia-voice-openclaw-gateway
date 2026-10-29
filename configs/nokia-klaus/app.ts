@@ -44,6 +44,10 @@ namespace Klaus {
     var lastErrorBuzz = 0;
     var listIndex = 0;              // menu / session-list cursor
     var listTargets: number[] = []; // session-list item → session index
+    var searchOpen = false;         // chat search over the phone-stored chats
+    var searchQuery = "";
+    var searchIndex = 0;
+    var searchHits: SearchHit[] = [];
     var thinkingTicker: any = null;
     var dots = 0;
     var stalled: { [id: string]: boolean } = Object.create(null); // poll timed out
@@ -1010,7 +1014,45 @@ namespace Klaus {
       uiOverlay("Archive “" + cur().title + "”?", [], -1, "It leaves the chat list. OK archives, Back keeps it.");
     }
 
-    function closeOverlay(): void { uiOverlayHide(); setMode("idle"); }
+    function closeOverlay(): void { uiOverlayHide(); searchOpen = false; setMode("idle"); }
+
+    // ── Search (chat list, right softkey) ────────────────────────────────────
+    // Local only: matches chat titles and stored message text, case- and
+    // accent-insensitive; OK opens the chat with the first match focused.
+    function openSearch(): void {
+      if (notesMode) { say("Search lives on the chat list."); return; }
+      searchOpen = true; searchQuery = ""; searchIndex = 0; searchHits = [];
+      setMode("search");
+      renderSearch();
+    }
+
+    function renderSearch(): void {
+      if (!searchOpen) return;
+      searchHits = searchSessions(sessions, searchQuery);
+      if (searchIndex >= searchHits.length) searchIndex = 0;
+      var rows = searchHits.map(function (hit: SearchHit): { title: string; match: string; inTitle: boolean } {
+        return { title: hit.title, match: hit.inTitle ? "Title" : hit.snippet, inTitle: hit.inTitle };
+      });
+      uiSearch(searchQuery, rows, searchIndex);
+    }
+
+    function moveSearchList(delta: number): void {
+      var count = searchHits.length;
+      if (!count) return;
+      searchIndex = (searchIndex + delta + count) % count;
+      renderSearch();
+    }
+
+    function selectSearch(): void {
+      var hit = searchHits[searchIndex];
+      if (!hit) return;
+      var query = searchQuery;
+      var target = hit.index;
+      closeOverlay();
+      var focusAt = searchMessageIndex(sessions[target].messages, query);
+      if (target !== active) switchTo(target);
+      if (focusAt >= 0) focusMessage(focusAt, true);
+    }
 
     // ── Today (chat list, 4) ────────────────────────────────────────────────
     // The last good answer is cached so the screen opens at once, also offline.
@@ -1231,13 +1273,16 @@ namespace Klaus {
         case "menu": openMenu(); break;
         case "cancel": cancelLocalCapture("Recording discarded."); break;
         case "send": if (mode === "recording" || mode === "paused") stopRecording(); else sendInput(); break;
-        case "clear": composer.value = ""; break;
+        case "clear": if (mode === "search") { searchQuery = ""; searchIndex = 0; renderSearch(); } else composer.value = ""; break;
         case "voice": exitInput(); startRecording(); break;
         case "exitInput": exitInput(); break;
-        case "close": closeOverlay(); break;
-        case "select": selectItem(); break;
-        case "up": if (mode === "today") uiOverlayScroll(-40); else if (mode === "idle") focusMessage(moveFocus(selected, count, -1), true); else moveList(-1); break;
-        case "down": if (mode === "today") uiOverlayScroll(40); else if (mode === "idle") focusMessage(moveFocus(selected, count, 1), true); else moveList(1); break;
+        case "close": if (mode === "search") { searchOpen = false; searchHits = []; } closeOverlay(); break;
+        case "select": if (mode === "search") selectSearch(); else selectItem(); break;
+        case "search": openSearch(); break;
+        case "typeChar": searchQuery += key.slice(0, 1); searchIndex = 0; renderSearch(); break;
+        case "delChar": searchQuery = searchQuery.slice(0, -1); searchIndex = 0; renderSearch(); break;
+        case "up": if (mode === "today") uiOverlayScroll(-40); else if (mode === "idle") focusMessage(moveFocus(selected, count, -1), true); else if (mode === "search") moveSearchList(-1); else moveList(-1); break;
+        case "down": if (mode === "today") uiOverlayScroll(40); else if (mode === "idle") focusMessage(moveFocus(selected, count, 1), true); else if (mode === "search") moveSearchList(1); else moveList(1); break;
         case "prev": switchSession(-1); break;
         case "next": switchSession(1); break;
         case "top": focusMessage(count ? 0 : -1, true); break;
@@ -1273,7 +1318,7 @@ namespace Klaus {
     document.addEventListener("keydown", function (event: KeyboardEvent): void {
       if (event.repeat) return;
       var key = keyOf(event);
-      var action = mapKey(mode, key, !composer.value, canResume);
+      var action = mapKey(mode, key, mode === "search" ? !searchQuery : !composer.value, canResume);
       if (action === "none") return;
       uiKeyDown(softkeyIndex(key));
       uiChipHide();
