@@ -8,6 +8,7 @@ namespace Klaus {
     body?: string | Blob | null;
     contentType?: string;
     requestId?: string;
+    onUploadProgress?: (loaded: number, total: number) => void;
     onSuccess: (status: number, text: string) => void;
     onError: (err: string) => void;
   };
@@ -35,6 +36,9 @@ namespace Klaus {
     req.onerror = function (): void { opts.onError("Network error"); };
     req.ontimeout = function (): void { opts.onError("Request timed out"); };
     req.timeout = 30000;
+    if (opts.onUploadProgress && req.upload) req.upload.onprogress = function (event: ProgressEvent): void {
+      if (event.lengthComputable) opts.onUploadProgress!(event.loaded, event.total);
+    };
     req.send(opts.body || null);
     return req;
   }

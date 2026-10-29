@@ -429,7 +429,11 @@ namespace Klaus {
           contentType: blob ? "audio/ogg" : "application/json",
           requestId: requestId,
           body: blob ? blob : JSON.stringify({ text: text }),
+          onUploadProgress: blob ? function (loaded: number, total: number): void {
+            if (isActive(sess)) uiUpload(total ? loaded / total : null);
+          } : undefined,
           onSuccess: function (status: number, body: string): void {
+            if (isActive(sess)) uiUpload(null);
             delete sending[sess.id];
             delete resend[sess.id];
             if (status === 202 || status === 200) {
@@ -460,6 +464,7 @@ namespace Klaus {
             }
           },
           onError: function (error: string): void {
+            if (isActive(sess)) uiUpload(null);
             delete sending[sess.id];
             markOffline();
             if (sess.lastRequestId === requestId) {
