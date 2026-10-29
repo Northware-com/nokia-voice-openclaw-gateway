@@ -6,7 +6,7 @@ namespace Klaus {
     "none" | "type" | "talk" | "menu" | "back" | "cancel" | "send" | "pause" | "resume" | "discard" | "clear" | "voice" |
     "close" | "select" | "up" | "down" | "prev" | "next" | "top" | "bottom" |
     "pageUp" | "pageDown" | "read" | "autoread" | "sessions" | "new" | "archive" | "exitInput" | "notes" | "quick" | "pick" | "dial" | "stopMeeting" |
-    "search" | "typeChar" | "delChar";
+    "search" | "typeChar" | "delChar" | "pin";
 
   // Clips longer than this need a second Backspace before they are discarded.
   export var DISCARD_CONFIRM_MS = 3000;
@@ -70,6 +70,7 @@ namespace Klaus {
         return "none";
       case "sessions":
         if (key === "SoftRight") return "search";
+        if (key === "7") return "pin";
         if (key === "1" || key === "2" || key === "3" || key === "4") return "dial";
         return LIST_KEYS[key] || "none";
       case "search":
@@ -156,7 +157,7 @@ namespace Klaus {
   export function noticeKind(text: string): string {
     if (/fail|error|unavailable|denied|could not|unsupported|no audio|cannot/i.test(text)) return "error";
     if (/offline|queued|not connected|not sent|cancel|discard|waiting|still|maximum|only one|first/i.test(text)) return "warn";
-    if (/saved|renamed|created|archived|back online|read aloud (on|off)|vibrate (on|off)|night mode (on|off)|large text (on|off)|^sent/i.test(text)) return "ok";
+    if (/saved|renamed|created|archived|back online|read aloud (on|off)|vibrate (on|off)|night mode (on|off)|large text (on|off)|^sent|pinned|unpinned/i.test(text)) return "ok";
     return "info";
   }
 
@@ -289,11 +290,11 @@ namespace Klaus {
   }
 
   export type RowKind = "" | "busy" | "failed" | "queued";
-  export interface SessionRow { kind: RowKind; title: string; time: string; preview: string; }
+  export interface SessionRow { kind: RowKind; title: string; time: string; preview: string; pinned?: boolean; }
 
   // Two-line chat-list row: marker + title + time, then a preview of the latest state.
   export function sessionRow(title: string, messages: Array<{ role: string; text: string }>, busy: boolean,
-                             failed: boolean, queued: boolean, updatedAt: number, now: number): SessionRow {
+                             failed: boolean, queued: boolean, updatedAt: number, now: number, pinned?: boolean): SessionRow {
     var kind: RowKind = failed ? "failed" : busy ? "busy" : queued ? "queued" : "";
     var last = messages.length ? messages[messages.length - 1] : null;
     var preview = failed ? "Failed · open, Menu › Retry"
@@ -302,7 +303,7 @@ namespace Klaus {
       : !last ? "No messages yet"
       : (last.role === "user" ? "You: " : "") + clipLine(last.text, 60);
     // Busy chats say so in the preview; a leading "…" would read as a clipped title.
-    return { kind: kind, title: sessionListLabel(title, false, failed, queued), time: relTime(updatedAt, now), preview: preview };
+    return { kind: kind, title: sessionListLabel(title, false, failed, queued), time: relTime(updatedAt, now), preview: preview, pinned: pinned === true };
   }
 
   // Empty-chat hint per state: what to do next, including while the first clip records.
@@ -327,6 +328,7 @@ namespace Klaus {
     "0  quick replies",
     "#  chats · 1-4 dial",
     "list right key: search",
+    "7  pin chat under cursor",
     "3  new · 7  archive",
     "*  notes (0 = meeting)",
     "Back  cancel / discard"

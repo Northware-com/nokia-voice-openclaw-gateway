@@ -53,10 +53,10 @@ const rows = h => h.nodes['overlay-list'].children.filter(row => /\bitem\b/.test
   const K = harness().context.Klaus;
   const msgs = [{role: 'user', text: 'list?'}, {role: 'assistant', text: 'Milk,\n eggs and coffee.'}];
   const row = (busy, failed, queued, m = msgs) => K.sessionRow('Shop', m, busy, failed, queued, 1000, 1000 + 120000);
-  assert.deepEqual({...row(false, false, false)}, {kind: '', title: 'Shop', time: '2m', preview: 'Milk, eggs and coffee.'});
+  assert.deepEqual({...row(false, false, false)}, {kind: '', title: 'Shop', time: '2m', preview: 'Milk, eggs and coffee.', pinned: false});
   assert.equal(row(false, false, false, msgs.slice(0, 1)).preview, 'You: list?', 'your own last turn is prefixed');
   assert.equal(row(false, false, false, []).preview, 'No messages yet');
-  assert.deepEqual({...row(true, false, false)}, {kind: 'busy', title: 'Shop', time: '2m', preview: 'Klaus is thinking…'});
+  assert.deepEqual({...row(true, false, false)}, {kind: 'busy', title: 'Shop', time: '2m', preview: 'Klaus is thinking…', pinned: false});
   assert.equal(row(false, true, true).kind, 'failed', 'failure outranks the queue');
   assert.equal(row(false, true, false).preview, 'Failed · open, Menu › Retry');
   assert.equal(row(false, false, true).preview, 'Queued · sends when online');

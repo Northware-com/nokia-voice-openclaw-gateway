@@ -14,7 +14,8 @@ const index = h => h.nodes['session-index'].textContent;
 {
   const K = harness().context.Klaus;
   for (const d of '1234') assert.equal(K.mapKey('sessions', d, true), 'dial', `chat list ${d}`);
-  for (const d of '567890*') assert.equal(K.mapKey('sessions', d, true), 'none', `chat list ${d} is unused`);
+  for (const d of '5 6 8 9 0 *'.split(' ')) assert.equal(K.mapKey('sessions', d, true), 'none', `chat list ${d} is unused`);
+  assert.equal(K.mapKey('sessions', '7', true), 'pin', 'chat list 7 pins the chat under the cursor');
   assert.equal(K.mapKey('sessions', 'ArrowUp', true), 'up');
   assert.equal(K.mapKey('sessions', 'Enter', true), 'select');
   assert.equal(K.mapKey('menu', '1', true), 'pick', 'menu digits pick the numbered item, not speed dial');

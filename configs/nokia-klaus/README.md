@@ -70,7 +70,15 @@ Speed dial on the chat list:
 
 ### Search
 
-The **right softkey on the chat list** opens **Search chats**: a dedicated screen that looks through the chats already saved on the phone, with no server round-trip.
+**Pinned chats** (`7` on the chat list): pin the chat under the cursor to the top of the list with a mint **P** badge before its title. Pinned chats stay together above everything else, in their own recency order; `7` again unpins (the note says Pinned/Unpinned and the name). The choice is stored per session (`pinned` in `klaus.sessions.v2`) and survives a restart. `7` still means *archive* while you are inside a chat, so there is no collision: pin is only offered on the list, where `7` was otherwise free.
+
+```
+| [P] Important            now |  pinned, mint P badge
+| [P] Remind me wha…      40m |  pinned group, recency order
+|  Budget                  9:05 |  unpinned below
+```
+
+**The right softkey on the chat list** opens **Search chats**: a dedicated screen that looks through the chats already saved on the phone, with no server round-trip.
 
 ```
 +------------------------------+
@@ -128,6 +136,7 @@ Idle keys:
 | 5 | Read the focused message aloud (latest reply if none); a focused clip placeholder, or a chat with no reply, plays your last clip. While this chat is being read (banner `))) Reading · 5 stops`), 5 stops reading and drops queued replies; again stops playback |
 | 0 | Quick replies: 1-9 sends one at once (see below) |
 | # | Chat list (most recent first, with previews) |
+| 7 (chat list) | Pin / unpin the chat under the cursor; pinned chats sort to the top with a P badge and persist across restarts. (7 still archives inside a chat.) |
 | Right softkey (chat list) | Search chats: case- and accent-insensitive over titles and stored text; OK opens the hit with its first match focused |
 | 3 | New chat |
 | 7 | Archive chat (confirm with OK or 7, Back cancels) |

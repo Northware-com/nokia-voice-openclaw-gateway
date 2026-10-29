@@ -342,9 +342,10 @@ namespace Klaus {
     }
     for (var i = 0; i < rows.length; i++) {
       var row = document.createElement("div");
-      row.className = "item chat" + (rows[i].kind ? " " + rows[i].kind : "") + (i === selected ? " sel" : "");
+      row.className = "item chat" + (rows[i].kind ? " " + rows[i].kind : "") + (rows[i].pinned ? " pinned" : "") + (i === selected ? " sel" : "");
       var top = document.createElement("div");
       top.className = "l1";
+      if (rows[i].pinned) top.appendChild(span("pino", "P"));
       top.appendChild(span("t", rows[i].title));
       top.appendChild(span("tm", rows[i].time));
       row.appendChild(top);

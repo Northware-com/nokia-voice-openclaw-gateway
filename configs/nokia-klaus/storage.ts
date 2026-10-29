@@ -30,6 +30,7 @@ namespace Klaus {
     outboxId: string | null;    // X-Request-Id of a turn not yet accepted; reused by every resend
     outboxAudio: boolean;       // that turn is the clip in IndexedDB (else lastText)
     updatedAt: number;          // ms epoch of the last activity (chat list order and time)
+    pinned: boolean;            // pinned chats hold the top of the chat list
     named: boolean;             // renamed by hand; otherwise the title follows the content
     voiceTurns: VoiceTurn[];    // clips shown as placeholders until a transcript arrives
   };
@@ -101,7 +102,7 @@ namespace Klaus {
       pollTimer: null, pollXhr: null,
       uploadPending: false, uploadBlob: null, textPending: false,
       outboxId: null, outboxAudio: false,
-      updatedAt: stamp(), named: false, voiceTurns: []
+      updatedAt: stamp(), pinned: false, named: false, voiceTurns: []
     };
   }
 
@@ -148,6 +149,7 @@ namespace Klaus {
     s.outboxId = typeof item.outboxId === "string" ? item.outboxId : null;
     s.outboxAudio = item.outboxAudio === true;
     s.updatedAt = typeof item.updatedAt === "number" ? item.updatedAt : 0;
+    s.pinned = item.pinned === true;
     s.named = item.named === true || (item.named === undefined && !isDefaultTitle(s.title));
     s.voiceTurns = Array.isArray(item.voiceTurns) ? item.voiceTurns.filter(function (v: any): boolean {
       return v && typeof v.at === "number" && v.at >= 0 && typeof v.ms === "number" && v.ms >= 0;
@@ -202,7 +204,7 @@ namespace Klaus {
       archived: s.archived, pendingSince: s.pendingSince, lastText: s.lastText,
       uploadPending: s.uploadPending, textPending: s.textPending,
       outboxId: s.outboxId, outboxAudio: s.outboxAudio,
-      updatedAt: s.updatedAt, named: s.named, voiceTurns: s.voiceTurns.slice()
+      updatedAt: s.updatedAt, pinned: s.pinned, named: s.named, voiceTurns: s.voiceTurns.slice()
     };
   }
 

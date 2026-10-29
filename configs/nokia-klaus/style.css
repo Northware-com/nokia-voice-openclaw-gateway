@@ -124,6 +124,12 @@ body { display: flex; flex-direction: column; position: relative; }
 .snote.warn { color: #ffc94d; }
 .item.sres .t.inTitle { color: #1bfc9e; }
 
+/* Pinned chats: a mint P badge before the title; pinned rows sort to the top of the list */
+.item.chat .pino { flex: 0 0 17px; margin-right: 4px; text-align: center; font: bold 12px sans-serif; line-height: 17px; color: #051111; background: #1bfc9e; border-radius: 3px; }
+.item.chat.sel .pino { color: #1bfc9e; background: #051111; }
+.night .item.chat .pino { background: #ffb36b; color: #000; }
+.night .item.chat.sel .pino { background: #000; color: #ffb36b; }
+
 /* Numbered lists (quick replies): nine compact rows fit without scrolling */
 .item.num { padding: 3px 8px; line-height: 20px; border-bottom: 0; }
 .num .key { display: inline-block; width: 20px; margin-right: 6px; text-align: center; font-weight: bold; color: #051111; background: #1bfc9e; border-radius: 3px; }

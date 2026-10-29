@@ -22,7 +22,7 @@ const menuRows = h => h.nodes['overlay-list'].children.filter(c => /\bitem\b/.te
   assert.equal(K.mapKey('help', '5', true), 'none', 'the help screen ignores other keys');
   assert.deepEqual(Array.from(K.softkeysFor('help', '')), ['Close', 'OK', '']);
   for (const line of K.KEY_HELP) assert.ok(line.length <= 24, `help line fits 240 px: ${line}`);
-  assert.equal(K.KEY_HELP.length, 13, 'every idle key family is listed');
+  assert.equal(K.KEY_HELP.length, 14, 'every idle key family is listed');
   assert.equal(K.KEY_HELP.includes('list right key: search'), true, 'the chat search entry is on the Keys screen');
 }
 

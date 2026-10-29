@@ -1002,8 +1002,12 @@ namespace Klaus {
     function openSessionList(): void {
       listTargets = [];
       for (var i = 0; i < sessions.length; i++) if (!sessions[i].archived) listTargets.push(i);
-      // Most recent first; the open chat is always the most recently opened.
-      listTargets.sort(function (a: number, b: number): number { return (sessions[b].updatedAt - sessions[a].updatedAt) || (b - a); });
+      // Most recent first; the open chat is always the most recently opened. Pinned
+      // chats hold the top of the list in their own recency order.
+      listTargets.sort(function (a: number, b: number): number {
+        if (sessions[a].pinned !== sessions[b].pinned) return sessions[b].pinned ? 1 : -1;
+        return (sessions[b].updatedAt - sessions[a].updatedAt) || (b - a);
+      });
       listIndex = Math.max(0, listTargets.indexOf(active));
       setMode("sessions");
       renderSessionList();
@@ -1144,9 +1148,21 @@ namespace Klaus {
       for (var i = 0; i < listTargets.length; i++) {
         var s = sessions[listTargets[i]];
         rows.push(sessionRow(s.title, s.messages, isBusyState(s.serverState), s.serverState === "error",
-          !!(s.uploadPending || resend[s.id] || s.textPending), s.updatedAt, now));
+          !!(s.uploadPending || resend[s.id] || s.textPending), s.updatedAt, now, !!s.pinned));
       }
       uiSessionList("Chats · " + rows.length, rows, listIndex, SPEED_DIAL, [!!notes, sessions.length < MAX_SESSIONS, previousChat() >= 0, !!notes]);
+    }
+
+    // 7 on the chat list pins or unpins the pointed chat; the choice survives restarts.
+    function pinSelected(): void {
+      var target = listTargets[listIndex];
+      if (target === undefined) return;
+      var sess = sessions[target];
+      sess.pinned = !sess.pinned;
+      var was = sess.pinned;
+      persist();
+      closeOverlay();
+      say((was ? "Pinned " : "Unpinned ") + "“" + sess.title + "”" + (was ? "; stays at the top of the list." : "."));
     }
 
     function selectItem(): void {
@@ -1300,6 +1316,7 @@ namespace Klaus {
           if (mode === "quick") sendQuick(Number(key) - 1);
           else if (Number(key) <= menuItems().length) { listIndex = Number(key) - 1; selectItem(); }
           break;
+        case "pin": pinSelected(); break;
         case "dial": speedDial(key); break;
         case "stopMeeting": stopMeeting(); break;
       }
