@@ -15,7 +15,7 @@ const menu = h => h.nodes['overlay-list'].children.map(c => c.textContent);
   const body = h.context.document.body;
   assert.equal(body.className, '', 'day palette and normal text by default');
   h.key('SoftRight');
-  assert.deepEqual(menu(h).slice(6), ['7Night mode: off', '8Large text: off', '9Keys']);
+  assert.deepEqual(menu(h).slice(6), ['7Night mode: off', '8Large text: off', '9Keys', '10Backup chats']);
   h.key('7');
   assert.equal(body.className, 'night');
   assert.equal(h.status(), 'Night mode on.');

@@ -132,7 +132,7 @@ body { display: flex; flex-direction: column; position: relative; }
 
 /* Numbered lists (quick replies): nine compact rows fit without scrolling */
 .item.num { padding: 3px 8px; line-height: 20px; border-bottom: 0; }
-.num .key { display: inline-block; width: 20px; margin-right: 6px; text-align: center; font-weight: bold; color: #051111; background: #1bfc9e; border-radius: 3px; }
+.num .key { display: inline-block; min-width: 20px; margin-right: 6px; padding: 0 3px; text-align: center; font-weight: bold; color: #051111; background: #1bfc9e; border-radius: 3px; }
 .num.sel .key { color: #1bfc9e; background: #051111; }
 
 /* Speed dial chips above the chat list: 1 Notes, 2 Klaus, 3 Last */

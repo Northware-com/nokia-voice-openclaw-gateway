@@ -128,7 +128,7 @@ Idle keys:
 |-----|--------|
 | Centre (OK) | Start recording |
 | SoftLeft | Focus the composer (typing) |
-| SoftRight | Menu: 1 New chat, 2 Rename, 3 Archive (confirm), 4 Retry last, 5 Read aloud on/off, 6 Vibrate on/off, 7 Night mode on/off, 8 Large text on/off, 9 Keys (a one-screen key list); a digit picks the item at once |
+| SoftRight | Menu: 1 New chat, 2 Rename, 3 Archive (confirm), 4 Retry last, 5 Read aloud on/off, 6 Vibrate on/off, 7 Night mode on/off, 8 Large text on/off, 9 Keys (a one-screen key list), 10 Backup chats (see below); a digit picks the item at once |
 | ↑ / ↓ | Focus previous / next message (full-row highlight). ↓ past the newest returns to live |
 | ← / →, 4 / 6 | Previous / next open chat (wraps, skips archived) |
 | 1 / 9 | Oldest / newest message |
@@ -197,6 +197,23 @@ When Gecko's `MediaRecorder.pause()` is missing, Pause stops the recorder and ke
 ```
 
 Up/Down scroll, OK updates, Back or the left key closes. The last answer is kept (`klaus.today.v1`) so the screen opens at once, also away from home Wi-Fi, with the freshness line saying how old it is. Reminders are the `Nokia-Reminder-*` files written by voice commands; a reminder leaves Today when its file is moved out of the inbox or its `status` is no longer `open`. Calendar and mail are a placeholder: they need credentials the notes service does not have.
+
+## Backup chats
+
+Menu 10 writes a local snapshot of everything the phone has stored, as one JSON file with a version field:
+
+```
+{ "version": 1, "app": "klaus", "at": 1750000000000,
+  "chats": [ { "id": "s-…", "title": "…", "pinned": true, "named": true,
+               "archived": false, "updatedAt": 1749999999999,
+               "messages": [ { "role": "user" | "assistant", "text": "…" (, "voice": true) } ] } ],
+  "settings": { "autoread": true, "haptics": true, "night": false, "large": false } }
+```
+
+- **Where it goes**: on a privileged install KaiOS exposes `navigator.appDataPaths` and the `fs` core module, and the file `klaus-backup-YYYY-MM-DD.json` (mode 600, one per day) is written to the app sandbox. The success notice shows the file name and the item count.
+- **Without the filesystem API** (unprivileged install or an engine without `require`), the same snapshot is logged to the mobile console and the screen shows an honest summary: the item count plus a timestamp (eg `1 chat, 2 messages`), so you can still see what was captured.
+- **What is in it**: every stored chat (id, title, pin/name/archive flags, activity time, all messages - voice placeholders keep their `voice` marker) and the four display/sound settings.
+- **What is deliberately not in it**: the bridge URL, the bearer token, client/server session ids, and every request id. The export is a plain local snapshot of conversations, not a credential dump, so it never enables use against the bridge. The `version` field lets a future restore or a dump tool check what shape it is reading.
 
 ## Display
 
@@ -279,6 +296,7 @@ Notes queue in order while the service is unreachable (for example away from hom
 |---|---|
 | `keys.ts` | Pure key map, softkey labels, state banner, notice colours, chat-list rows and titles, focus/backoff/time/language helpers (unit tested) |
 | `viz.ts` | Reply mini-syntax parser: bar charts, checklists, timelines (unit tested) |
+| `backup.ts` | Local backup: versioned export build, summary and the KaiOS sandbox/console writers (unit tested) |
 | `storage.ts` | Session model, localStorage persistence, IndexedDB clip store |
 | `api.ts` | mozSystem XHR and connection probe |
 | `tts.ts` | Serialized speech queue, current item and change callback |
@@ -303,6 +321,7 @@ node tests/nokia-quick-replies.cjs # 0 + digit quick replies
 node tests/nokia-read-aloud.cjs  # 5 read/stop, reading banner and outline
 node tests/nokia-speed-dial.cjs  # chat list 1 Notes, 2 Klaus, 3 Last
 node tests/nokia-viz.cjs         # reply visualisation: bars, checks, timelines, plain-text fallback
+node tests/nokia-backup.cjs      # backup: schema, no secrets, sandbox write, console fallback
 node tests/nokia-polish.cjs      # menu digits, Keys screen, empty hint, version
 ```
 

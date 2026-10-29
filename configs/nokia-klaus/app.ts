@@ -989,7 +989,7 @@ namespace Klaus {
     function menuItems(): string[] {
       return ["New chat", "Rename", "Archive", "Retry last", "Read aloud: " + (autoRead ? "on" : "off"),
         "Vibrate: " + (haptics ? "on" : "off"), "Night mode: " + (night ? "on" : "off"),
-        "Large text: " + (large ? "on" : "off"), "Keys"];
+        "Large text: " + (large ? "on" : "off"), "Keys", "Backup chats"];
     }
 
     function openMenu(): void { listIndex = 0; setMode("menu"); uiOverlay("Menu", menuItems(), listIndex, undefined, true); }
@@ -1186,6 +1186,24 @@ namespace Klaus {
       else if (choice === 6) toggleDisplay("night");
       else if (choice === 7) toggleDisplay("large");
       else if (choice === 8) openHelp();
+      else if (choice === 9) makeBackup();
+    }
+
+    // Menu › Backup chats: one local JSON snapshot of every stored chat and the
+    // display/sound choices. Files go to the app sandbox when KaiOS provides the
+    // filesystem API (privileged install); otherwise the same summary is shown
+    // on screen and to the console. The export never carries the bridge URL,
+    // tokens, client/server ids or request ids.
+    function makeBackup(): void {
+      var file = buildBackup(sessions, { autoread: autoRead, haptics: haptics, night: night, large: large });
+      var path = writeBackup(file);
+      if (path) {
+        try { if (typeof console !== "undefined" && console.log) console.log("Klaus backup written: " + path); } catch (_e) { /* no console */ }
+        say("Backup saved to " + path.slice(path.lastIndexOf("/") + 1) + ". " + backupSummary(file));
+        return;
+      }
+      try { if (typeof console !== "undefined" && console.log) console.log(JSON.stringify(file)); } catch (_e) { /* no console */ }
+      say("File saving is not available on this device. " + backupSummary(file) + " logged to the console.");
     }
 
     // ── Reading ─────────────────────────────────────────────────────────────

@@ -41,7 +41,7 @@ const menuRows = h => h.nodes['overlay-list'].children.filter(c => /\bitem\b/.te
   const h = harness();
   h.key('SoftRight');
   const rows = menuRows(h);
-  assert.deepEqual(rows.map(r => r.textContent), ['1New chat', '2Rename', '3Archive', '4Retry last', '5Read aloud: on', '6Vibrate: on', '7Night mode: off', '8Large text: off', '9Keys']);
+  assert.deepEqual(rows.map(r => r.textContent), ['1New chat', '2Rename', '3Archive', '4Retry last', '5Read aloud: on', '6Vibrate: on', '7Night mode: off', '8Large text: off', '9Keys', '10Backup chats']);
   assert.ok(rows.every(r => /\bnum\b/.test(r.className)), 'menu rows carry digit badges');
   h.key('0');
   assert.ok(!h.nodes.overlay.hidden, 'a digit past the last item does nothing');
