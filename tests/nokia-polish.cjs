@@ -39,14 +39,14 @@ const menuRows = h => h.nodes['overlay-list'].children.filter(c => /\bitem\b/.te
   const h = harness();
   h.key('SoftRight');
   const rows = menuRows(h);
-  assert.deepEqual(rows.map(r => r.textContent), ['1New chat', '2Rename', '3Archive', '4Retry last', '5Read aloud: on', '6Vibrate: on', '7Keys']);
+  assert.deepEqual(rows.map(r => r.textContent), ['1New chat', '2Rename', '3Archive', '4Retry last', '5Read aloud: on', '6Vibrate: on', '7Night mode: off', '8Large text: off', '9Keys']);
   assert.ok(rows.every(r => /\bnum\b/.test(r.className)), 'menu rows carry digit badges');
-  h.key('9');
+  h.key('0');
   assert.ok(!h.nodes.overlay.hidden, 'a digit past the last item does nothing');
   h.key('2');
   assert.deepEqual(h.softkeys(), ['Clear', 'Save', 'Cancel'], '2 opens Rename');
   h.key('Escape');
-  h.key('SoftRight'); h.key('7');
+  h.key('SoftRight'); h.key('9');
   assert.equal(h.nodes['overlay-title'].textContent, 'Keys');
   assert.deepEqual(h.softkeys(), ['Close', 'OK', '']);
   const note = h.nodes['overlay-list'].children[0];
@@ -57,7 +57,7 @@ const menuRows = h => h.nodes['overlay-list'].children.filter(c => /\bitem\b/.te
   h.key('Enter');
   assert.ok(h.nodes.overlay.hidden);
   assert.deepEqual(h.softkeys(), ['Type', 'Talk', 'Menu']);
-  h.key('SoftRight'); h.key('7'); h.key('Backspace');
+  h.key('SoftRight'); h.key('9'); h.key('Backspace');
   assert.ok(h.nodes.overlay.hidden, 'Back closes the Keys screen');
   h.key('SoftRight'); h.key('1');
   assert.equal(h.nodes['session-index'].textContent, '2/2', '1 creates a chat');

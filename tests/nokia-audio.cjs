@@ -60,7 +60,7 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   const player = {paused: true, addEventListener() {}, pause() {this.paused = true;}, play() {this.paused = false; return {catch() {}};}, removeAttribute() {delete this.src;}};
   const nodes = {player};
   const document = {
-    hidden: false, activeElement: null,
+    hidden: false, activeElement: null, body: new FakeElement('body'),
     getElementById(id) { if (!nodes[id]) nodes[id] = new FakeElement(id); return nodes[id]; },
     createElement() { return new FakeElement(); },
     addEventListener(name, fn) { handlers[name] = fn; },

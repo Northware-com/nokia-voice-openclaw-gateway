@@ -39,6 +39,8 @@ namespace Klaus {
     var selected = -1;              // focused message index, -1 = live/newest
     var autoRead = loadSetting("autoread", true);
     var haptics = loadSetting("haptics", true);
+    var night = loadSetting("night", false);  // dim warm palette for dark rooms
+    var large = loadSetting("large", false);  // bigger message and list text
     var lastErrorBuzz = 0;
     var listIndex = 0;              // menu / session-list cursor
     var listTargets: number[] = []; // session-list item → session index
@@ -941,7 +943,8 @@ namespace Klaus {
     // ── Menu, session list, confirm ─────────────────────────────────────────
     function menuItems(): string[] {
       return ["New chat", "Rename", "Archive", "Retry last", "Read aloud: " + (autoRead ? "on" : "off"),
-        "Vibrate: " + (haptics ? "on" : "off"), "Keys"];
+        "Vibrate: " + (haptics ? "on" : "off"), "Night mode: " + (night ? "on" : "off"),
+        "Large text: " + (large ? "on" : "off"), "Keys"];
     }
 
     function openMenu(): void { listIndex = 0; setMode("menu"); uiOverlay("Menu", menuItems(), listIndex, undefined, true); }
@@ -1081,7 +1084,9 @@ namespace Klaus {
       else if (choice === 3) retryLast();
       else if (choice === 4) toggleAutoRead();
       else if (choice === 5) toggleHaptics();
-      else if (choice === 6) openHelp();
+      else if (choice === 6) toggleDisplay("night");
+      else if (choice === 7) toggleDisplay("large");
+      else if (choice === 8) openHelp();
     }
 
     // ── Reading ─────────────────────────────────────────────────────────────
@@ -1090,6 +1095,18 @@ namespace Klaus {
       saveSetting("autoread", autoRead);
       if (!autoRead) ttsStop();
       say("Read aloud " + (autoRead ? "on" : "off") + ".");
+    }
+
+    function applyDisplay(): void {
+      uiDisplay(night, large);
+    }
+
+    function toggleDisplay(which: string): void {
+      if (which === "night") { night = !night; saveSetting("night", night); }
+      else { large = !large; saveSetting("large", large); }
+      applyDisplay();
+      if (mode === "idle") uiScrollBottom();
+      say(which === "night" ? "Night mode " + (night ? "on" : "off") + "." : "Large text " + (large ? "on" : "off") + ".");
     }
 
     function toggleHaptics(): void {
@@ -1289,6 +1306,7 @@ namespace Klaus {
         });
       }
     });
+    applyDisplay();
     sessions.forEach(retitle);
     touch(sessions[active]); // launching reopens the last chat
     persist();

@@ -119,3 +119,54 @@ body { display: flex; flex-direction: column; position: relative; }
 .trow.past .tm { color: #8aa9a0; }
 .trow.none { color: #8aa9a0; font-style: italic; }
 .trow:not(.past):not(.none) .tm + .tx { color: #e7fff5; }
+
+/* Large text (Menu › Large text): reading text grows, chrome stays put so the layout holds */
+body.large .bubble { font-size: 19px; line-height: 1.25; }
+body.large .empty { font-size: 17px; }
+body.large #status { font-size: 16px; line-height: 20px; max-height: 44px; }
+body.large .item { font-size: 18px; }
+body.large .item.num { line-height: 22px; padding: 2px 8px; }
+body.large .chat .pv, body.large .trow { font-size: 16px; line-height: 20px; }
+body.large .note.keys { font-size: 16px; line-height: 20px; }
+body.large #composer { font-size: 18px; }
+
+/* Night mode (Menu › Night mode): black background, warm amber text, no bright mint or white
+   surfaces. Text contrast stays above 4.5:1; recording red and the state colours keep their meaning. */
+body.night { background: #000; color: #e0b98f; }
+.night #bar, .night #softkeys { background: #0d0805; border-color: #4a2e14; }
+.night #bar { border-bottom-color: #6b4220; }
+.night #bar.notes { background: #140c1c; border-bottom-color: #6a4f8f; }
+.night #session-index, .night #sk-center { color: #ffb36b; }
+.night #connection.ok { color: #c98a3d; }
+.night .user .bubble { background: #5a3714; color: #ffe2c2; }
+.night .bot .bubble { background: #120b06; color: #e0b98f; border-color: #4a2e14; }
+.night .voice .bubble { background: #0d0805; color: #d9a676; border-color: #a8662a; }
+.night #echo .bubble { color: #ffe2c2; }
+.night .msg.sel { background: #2a1808; border-left-color: #ffb36b; }
+.night .msg.sel .bubble { border-color: #ffb36b; }
+.night .msg.reading, .night .bot.reading .bubble { border-color: #ffb36b; }
+.night .empty, .night #thinking .bubble { color: #b8926b; }
+.night #status { background: #0d0805; border-top-color: #4a2e14; color: #e0b98f; }
+.night #status.ok { color: #ffb36b; }
+.night #composer { background: #0d0805; color: #ffe2c2; border-top-color: #4a2e14; }
+.night #composer:focus { background: #160d06; border-top-color: #ffb36b; }
+.night #softkeys span.press { background: #ffb36b; color: #000; }
+.night #banner.reading { background: #3a2410; color: #ffe2c2; border-top-color: #ffb36b; }
+.night #overlay { background: #000; border-top-color: #ffb36b; }
+.night #overlay-title, .night .dial { background: #0d0805; color: #ffb36b; border-color: #4a2e14; }
+.night .item { border-bottom-color: #160d06; }
+.night .item.sel { background: #ffb36b; color: #000; }
+.night .num .key, .night .chip .key { background: #ffb36b; color: #000; }
+.night .num.sel .key { background: #000; color: #ffb36b; }
+.night .chip.off .key { background: #4a3a2a; }
+.night .chat .tm, .night .fresh { color: #c99a6b; }
+.night .chat .pv { color: #b8926b; }
+.night .chat.sel .tm, .night .chat.sel .pv { color: #3a2410; }
+.night .note { color: #e0b98f; }
+.night .sec { color: #ffb36b; border-top-color: #160d06; }
+.night .trow:not(.past):not(.none) .tm + .tx { color: #ffe2c2; }
+.night #chip { border-color: #000; }
+.night .chat.busy .pv, .night .chat.queued .pv { color: #ffc94d; }
+.night .chat.failed .pv { color: #ff9c86; }
+.night #bar.rec { background: #5a1010; border-bottom-color: #ff5a3c; }
+.night #bar.paused { background: #4a3400; border-bottom-color: #ffb000; }

@@ -144,7 +144,7 @@ namespace Klaus {
   export function noticeKind(text: string): string {
     if (/fail|error|unavailable|denied|could not|unsupported|no audio|cannot/i.test(text)) return "error";
     if (/offline|queued|not connected|not sent|cancel|discard|waiting|still|maximum|only one|first/i.test(text)) return "warn";
-    if (/saved|renamed|created|archived|back online|read aloud (on|off)|vibrate (on|off)|^sent/i.test(text)) return "ok";
+    if (/saved|renamed|created|archived|back online|read aloud (on|off)|vibrate (on|off)|night mode (on|off)|large text (on|off)|^sent/i.test(text)) return "ok";
     return "info";
   }
 

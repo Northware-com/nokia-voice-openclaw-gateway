@@ -316,6 +316,12 @@ namespace Klaus {
 
   export function uiOverlayHide(): void { show(overlayEl, false); }
 
+  // Display options on <body>: "night" (dim warm palette), "large" (bigger reading text).
+  export function uiDisplay(night: boolean, large: boolean): void {
+    var body = document.body;
+    if (body) body.className = (night ? "night" : "") + (night && large ? " " : "") + (large ? "large" : "");
+  }
+
   export function uiBarRecording(on: boolean, notes?: boolean, paused?: boolean): void {
     bar.className = on ? (paused ? "paused" : "rec") : notes ? "notes" : "";
   }

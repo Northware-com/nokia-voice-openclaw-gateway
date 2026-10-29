@@ -98,7 +98,7 @@ Idle keys:
 |-----|--------|
 | Centre (OK) | Start recording |
 | SoftLeft | Focus the composer (typing) |
-| SoftRight | Menu: 1 New chat, 2 Rename, 3 Archive (confirm), 4 Retry last, 5 Read aloud on/off, 6 Vibrate on/off, 7 Keys (a one-screen key list); a digit picks the item at once |
+| SoftRight | Menu: 1 New chat, 2 Rename, 3 Archive (confirm), 4 Retry last, 5 Read aloud on/off, 6 Vibrate on/off, 7 Night mode on/off, 8 Large text on/off, 9 Keys (a one-screen key list); a digit picks the item at once |
 | ↑ / ↓ | Focus previous / next message (full-row highlight). ↓ past the newest returns to live |
 | ← / →, 4 / 6 | Previous / next open chat (wraps, skips archived) |
 | 1 / 9 | Oldest / newest message |
@@ -149,6 +149,13 @@ When Gecko's `MediaRecorder.pause()` is missing, Pause stops the recorder and ke
 ```
 
 Up/Down scroll, OK updates, Back or the left key closes. The last answer is kept (`klaus.today.v1`) so the screen opens at once, also away from home Wi-Fi, with the freshness line saying how old it is. Reminders are the `Nokia-Reminder-*` files written by voice commands; a reminder leaves Today when its file is moved out of the inbox or its `status` is no longer `open`. Calendar and mail are a placeholder: they need credentials the notes service does not have.
+
+## Display
+
+- **Menu › Night mode**: black background with warm amber text and no bright mint or white surfaces, for dark rooms. Recording red, paused amber and the error/queue colours keep their meaning; the main text pairs stay above 4.5:1 contrast.
+- **Menu › Large text**: message bubbles 19 px (from 16), menu and list rows 18 px, notices 16 px; the bars and softkeys keep their size so the layout holds.
+
+Both are kept across restarts (`klaus.night`, `klaus.large`) and can be combined.
 
 ## Vibration
 
