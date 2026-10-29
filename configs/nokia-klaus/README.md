@@ -13,13 +13,31 @@ Voice and text chat client for the EcoRay / Klaus backend on the Nokia 6300 4G (
 |            [add bread]       |  typed text echoed while pending
 | [thinking ··· 0:12]          |  animated pending bubble
 |                              |
-| Request cancelled.           |  one-line notice (only when needed)
-|[Type: left key · Talk: OK   ]|  composer
-| Type        Talk        Menu |  softkeys follow the state
+| Request cancelled.           |  notice, up to two lines, coloured by kind
+|[OK: talk · Left: type       ]|  composer, or the state banner below
+| Type        TALK        Menu |  softkeys follow the state
 +------------------------------+
 ```
 
-The connection dot is green when connected, amber when the gateway is down, red for auth/network errors and grey when no bridge is configured.
+The connection dot is green when connected, amber when the gateway is down, red for auth/network errors and grey when no bridge is configured; a problem also adds a word next to the dot (`offline`, `down`, `auth`).
+
+Type is 16 px (notices 14 px). Notices are red for errors, amber for waits/queues and green for confirmations. A pressed softkey lights up until the key is released; the focused message gets a mint left bar and white outline.
+
+### State banner
+
+When something needs attention, a 30 px banner with an icon and a colour takes the composer's place (typing brings the composer back):
+
+| State | Banner | Colour |
+|---|---|---|
+| Recording | `● Recording 0:07` (`● Note 0:07` in Notes) | red, plus red top bar |
+| Paused | `❚❚ Paused 0:07` | amber, plus amber top bar |
+| Discard confirm | `✕ Delete 0:07 clip? Back again` | dark red |
+| Sending | `↑ Sending…` | blue |
+| Queued | `↻ Message queued · sending soon` | dark amber |
+| Offline | `↻ Offline · message queued` | grey |
+| Failed / no reply | `! Failed · Menu › Retry last` | dark red |
+
+The chat list marks chats that are pending (`…`), failed (`!`) or have a queued clip (`↻`). The archive confirm explains itself on screen.
 
 ## Keys
 
@@ -28,12 +46,14 @@ Softkey labels per state:
 | State | Left | Centre | Right |
 |---|---|---|---|
 | Idle | Type | Talk | Menu |
-| Recording | Cancel | Pause | elapsed `0:07` |
+| Recording | Delete | Pause | Send |
 | Paused | Delete | Resume (Send if the recorder cannot pause) | Send |
 | Typing | Clear | Send | Voice |
 | Rename | Clear | Save | Cancel |
 | Menu / chat list | Close | Select / Open | |
 | Archive confirm | Cancel | Archive | |
+
+The recording timer is in the state banner, so both clip states share Delete (left) and Send (right).
 
 Idle keys:
 
@@ -60,10 +80,10 @@ While recording or paused:
 
 | Key | Recording | Paused |
 |-----|-----------|--------|
-| Centre (OK) | Pause (status shows `Paused 0:07`) | Resume; sends instead when the recorder has no `pause()` |
+| Centre (OK) | Pause (banner shows `❚❚ Paused 0:07`) | Resume; sends instead when the recorder has no `pause()` |
 | Call (green) | Send | Send |
-| SoftRight | | Send (fallback if the system reserves Call) |
-| SoftLeft | Cancel (discard) | Delete (discard) |
+| SoftRight | Send (fallback if the system reserves Call) | Send |
+| SoftLeft | Delete (discard) | Delete (discard) |
 | Backspace | Discard; clips over 3 s ask for a second Backspace | Same |
 
 Clips are recorded as Ogg/Opus at 16 kbps (about 3.4 KB per second of speech); a recorder that rejects the bitrate option falls back to its default.
@@ -92,7 +112,7 @@ Notes queue in order while the service is unreachable (for example away from hom
 
 | File | Purpose |
 |---|---|
-| `keys.ts` | Pure key map, softkey labels, focus/backoff/time/language helpers (unit tested) |
+| `keys.ts` | Pure key map, softkey labels, state banner, notice colours, focus/backoff/time/language helpers (unit tested) |
 | `storage.ts` | Session model, localStorage persistence, IndexedDB clip store |
 | `api.ts` | mozSystem XHR and connection probe |
 | `tts.ts` | Serialized speech queue |
@@ -116,4 +136,4 @@ node tests/nokia-quick-notes.cjs # Notes screen, notes queue, restart resend
 ## Notes
 
 - Requires a privileged install (`type: "privileged"`, `permissions.systemXHR`); see `manifest.webapp`.
-- Verified on a Nokia 6300 4G (KaiOS 2.5.4): Centre start/pause/resume (native `MediaRecorder.pause()`), Call send, SoftRight send while paused, Backspace discard with confirm, typed send, and Wi-Fi off/on queue and resend. Clip upload after a restart without signal is verified on the handset (0.3.3), as are Notes voice/typed/offline-queued notes (0.3.4), the pending first turn of a new chat and a paused-then-resumed clip (0.4.0); the voice list remains unverified.
+- Verified on a Nokia 6300 4G (KaiOS 2.5.4): Centre start/pause/resume (native `MediaRecorder.pause()`), Call send, SoftRight send while paused, Backspace discard with confirm, typed send, and Wi-Fi off/on queue and resend. Clip upload after a restart without signal is verified on the handset (0.3.3), as are Notes voice/typed/offline-queued notes (0.3.4), the pending first turn of a new chat and a paused-then-resumed clip (0.4.0), and the 0.5.0 state banner, softkey labels, press feedback, focus highlight and archive confirm; the voice list remains unverified.

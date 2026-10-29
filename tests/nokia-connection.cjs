@@ -686,8 +686,10 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
   const h = harness();
   // First 7: confirmation prompt
   h.key('7');
-  assert.ok(h.nodes.status.textContent.includes('Archive') || h.nodes.status.textContent.includes('confirm') || h.nodes.status.textContent.includes('7'),
-    'First 7 must show archive confirmation prompt: ' + h.nodes.status.textContent);
+  // The prompt lives on the confirm overlay (the status line sits underneath it).
+  assert.ok(!h.nodes.overlay.hidden && h.nodes['overlay-title'].textContent.includes('Archive') &&
+    h.nodes['overlay-list'].textContent.includes('OK archives'),
+    'First 7 must show archive confirmation prompt: ' + h.nodes['overlay-title'].textContent);
   // Back should cancel confirmation and restore normal status
   h.key('Backspace');
   // Status should be normal (ready) not archive prompt

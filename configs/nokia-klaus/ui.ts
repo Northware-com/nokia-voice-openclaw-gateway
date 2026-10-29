@@ -2,7 +2,7 @@
 namespace Klaus {
   var bar: HTMLElement, indexEl: HTMLElement, titleEl: HTMLElement, connEl: HTMLElement;
   var chatEl: HTMLElement, listEl: HTMLElement, thinkingEl: HTMLElement, echoEl: HTMLElement;
-  var statusEl: HTMLElement, skEls: HTMLElement[], overlayEl: HTMLElement, overlayTitle: HTMLElement, overlayList: HTMLElement;
+  var statusEl: HTMLElement, bannerEl: HTMLElement, skEls: HTMLElement[], overlayEl: HTMLElement, overlayTitle: HTMLElement, overlayList: HTMLElement;
   export var composer: HTMLInputElement;
 
   var rendered: HTMLElement[] = [];
@@ -22,10 +22,10 @@ namespace Klaus {
   export function uiInit(): void {
     bar = byId("bar"); indexEl = byId("session-index"); titleEl = byId("session-title"); connEl = byId("connection");
     chatEl = byId("chat"); listEl = byId("transcript"); thinkingEl = byId("thinking"); echoEl = byId("echo");
-    statusEl = byId("status"); composer = byId("composer") as HTMLInputElement;
+    statusEl = byId("status"); bannerEl = byId("banner"); composer = byId("composer") as HTMLInputElement;
     skEls = [byId("sk-left"), byId("sk-center"), byId("sk-right")];
     overlayEl = byId("overlay"); overlayTitle = byId("overlay-title"); overlayList = byId("overlay-list");
-    show(thinkingEl, false); show(echoEl, false); show(statusEl, false); show(overlayEl, false);
+    show(thinkingEl, false); show(echoEl, false); show(statusEl, false); show(bannerEl, false); show(overlayEl, false);
   }
 
   export function uiTopbar(index: number, count: number, title: string): void {
@@ -41,8 +41,11 @@ namespace Klaus {
     "CONNECTED": "ok", "AUTH ERROR": "bad", "GATEWAY DOWN": "warn", "UNREACHABLE": "bad", "NOT CONNECTED": "off"
   };
 
+  // Short word next to the dot when something is wrong, so the state reads without colour.
+  var CONN_WORD: { [state: string]: string } = { "AUTH ERROR": "auth", "GATEWAY DOWN": "down", "UNREACHABLE": "offline" };
+
   export function uiConn(state: ConnState): void {
-    connEl.textContent = "●";
+    connEl.textContent = CONN_WORD[state] ? "● " + CONN_WORD[state] : "●";
     connEl.className = CONN_CLASS[state] || "off";
     connEl.setAttribute("data-state", state);
     connEl.setAttribute("aria-label", state);
@@ -52,10 +55,34 @@ namespace Klaus {
     skEls[0].textContent = left; skEls[1].textContent = centre; skEls[2].textContent = right;
   }
 
-  // One-line notice above the composer; hidden when empty.
+  // Press feedback: the softkey lights up until the key is released.
+  export function uiKeyDown(index: number): void {
+    if (skEls[index]) skEls[index].className = "press";
+  }
+
+  export function uiKeyUp(): void {
+    for (var i = 0; i < skEls.length; i++) skEls[i].className = "";
+  }
+
+  // One-line notice above the composer, coloured by kind; hidden when empty.
   export function uiStatus(text: string): void {
     statusEl.textContent = text;
+    statusEl.className = noticeKind(text);
     show(statusEl, !!text);
+  }
+
+  // State strip in place of the composer; the composer returns when there is no banner.
+  export function uiBanner(banner: Banner | null, typing: boolean): void {
+    bannerEl.textContent = banner ? banner.icon + " " + banner.text : "";
+    bannerEl.className = banner ? banner.kind : "";
+    show(bannerEl, !!banner && !typing);
+    show(composer, typing || !banner);
+  }
+
+  export function uiComposerHint(mode: Mode, notes: boolean): void {
+    var hint = mode === "rename" ? "Chat name" : mode === "typing" ? (notes ? "Type a note" : "Type a message")
+      : notes ? "OK: talk · Left: type a note" : "OK: talk · Left: type";
+    composer.setAttribute("placeholder", hint);
   }
 
   function atBottom(): boolean {
@@ -156,9 +183,16 @@ namespace Klaus {
     return rendered.length ? rendered.length - 1 : -1;
   }
 
-  export function uiOverlay(title: string, items: string[], selected: number): void {
+  // note: plain explanatory text under the title (confirm screens), never selectable.
+  export function uiOverlay(title: string, items: string[], selected: number, note?: string): void {
     overlayTitle.textContent = title;
     while (overlayList.firstChild) overlayList.removeChild(overlayList.firstChild);
+    if (note) {
+      var p = document.createElement("p");
+      p.className = "note";
+      p.textContent = note;
+      overlayList.appendChild(p);
+    }
     for (var i = 0; i < items.length; i++) {
       var row = document.createElement("div");
       row.className = i === selected ? "item sel" : "item";
@@ -171,7 +205,7 @@ namespace Klaus {
 
   export function uiOverlayHide(): void { show(overlayEl, false); }
 
-  export function uiBarRecording(on: boolean, notes?: boolean): void {
-    bar.className = on ? "rec" : notes ? "notes" : "";
+  export function uiBarRecording(on: boolean, notes?: boolean, paused?: boolean): void {
+    bar.className = on ? (paused ? "paused" : "rec") : notes ? "notes" : "";
   }
 }

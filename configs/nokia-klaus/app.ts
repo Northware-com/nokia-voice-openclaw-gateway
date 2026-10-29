@@ -89,7 +89,8 @@ namespace Klaus {
     // ── Chrome: softkeys, top bar, thinking bubble ──────────────────────────
     function setMode(next: Mode): void {
       mode = next;
-      uiBarRecording(next === "recording" || next === "paused", notesMode);
+      uiBarRecording(next === "recording" || next === "paused", notesMode, next === "paused");
+      uiComposerHint(next, notesMode);
       refreshSoftkeys();
     }
 
@@ -100,6 +101,22 @@ namespace Klaus {
     function refreshSoftkeys(): void {
       var labels = softkeysFor(mode, formatElapsed(recElapsed()), canResume, notesMode);
       setSoftkeys(labels[0], labels[1], labels[2]);
+      refreshBanner();
+    }
+
+    function refreshBanner(): void {
+      var sess = cur();
+      var state: BannerState = { mode: mode, elapsed: formatElapsed(recElapsed()), discardArmed: discardArmed, notes: notesMode, connected: connState === "CONNECTED" };
+      if (sess === notesSess) {
+        state.sending = !!(notes && notes.sending);
+        state.queued = notes ? notes.queue.length : 0;
+      } else {
+        state.failed = sess.serverState === "error";
+        state.stalled = !!stalled[sess.id] && isBusyState(sess.serverState);
+        state.sending = !!sending[sess.id];
+        state.queued = (sess.uploadPending || resend[sess.id]) && !sending[sess.id] ? 1 : 0;
+      }
+      uiBanner(stateBanner(state), mode === "typing" || mode === "rename");
     }
 
     function openCount(): number {
@@ -141,6 +158,7 @@ namespace Klaus {
       var echo = sess.lastText && !(last && last.role === "user" && last.text === sess.lastText) ? sess.lastText : null;
       if (sess === notesSess) echo = notes && notes.queue.length ? notes.queue[0].text || "Voice note" : null;
       uiThinking(label, echo);
+      refreshBanner();
       if (label && !thinkingTicker) {
         thinkingTicker = setInterval(function (): void { dots++; refreshThinking(); }, 500);
       } else if (!label && thinkingTicker) {
@@ -159,8 +177,6 @@ namespace Klaus {
       uiSelect(-1, true);
       refreshThinking();
       refreshSoftkeys();
-      if (sess.serverState === "error") say("Last request failed. Menu › Retry last.");
-      else if (sess.uploadPending) say(connected ? "Voice clip queued; sends when back online." : "Voice clip not sent yet. Menu › Retry last.");
     }
 
     // ── Notes ───────────────────────────────────────────────────────────────
@@ -179,7 +195,7 @@ namespace Klaus {
       setMode("idle");
       updateView();
       if (notesMode) {
-        say(notes.queue.length ? "" : "Note for Plato: OK to talk, left key to type.");
+        say(notes.queue.length ? "" : "Notes go to Plato's inbox.");
         notes.flush();
       }
     }
@@ -249,12 +265,14 @@ namespace Klaus {
       sess.uploadPending = true;
       sess.uploadBlob = blob;
       clipPut(sess.id, blob);
+      if (isActive(sess)) refreshBanner();
     }
 
     function dropClip(sess: LocalSession): void {
       sess.uploadPending = false;
       sess.uploadBlob = null;
       clipDelete(sess.id);
+      if (isActive(sess)) refreshBanner();
     }
 
     // The turn was accepted, cancelled or discarded: later turns get a new request id.
@@ -262,6 +280,7 @@ namespace Klaus {
       delete resend[sess.id];
       sess.outboxId = null;
       sess.outboxAudio = false;
+      if (isActive(sess)) refreshBanner();
     }
 
     function afterStateChange(sess: LocalSession): void {
@@ -697,7 +716,6 @@ namespace Klaus {
         sendOnStop = false;
         try { recorder.stop(); } catch (_e) { cancelLocalCapture("Recording failed. Press OK to retry."); return; }
       }
-      say("Paused " + formatElapsed(recAccum));
     }
 
     function resumeRecording(): void {
@@ -714,7 +732,7 @@ namespace Klaus {
       var ms = recElapsed();
       if (ms > DISCARD_CONFIRM_MS && !discardArmed) {
         discardArmed = true;
-        say("Discard " + formatElapsed(ms) + " clip? Back again to delete.");
+        refreshBanner();
         return;
       }
       cancelLocalCapture("Recording discarded.");
@@ -768,8 +786,7 @@ namespace Klaus {
 
     function openConfirm(): void {
       setMode("confirm");
-      uiOverlay("Archive “" + cur().title + "”?", [], -1);
-      say("Archive this chat? OK confirms, Back cancels.");
+      uiOverlay("Archive “" + cur().title + "”?", [], -1, "It leaves the chat list. OK archives, Back keeps it.");
     }
 
     function closeOverlay(): void { uiOverlayHide(); setMode("idle"); }
@@ -786,7 +803,7 @@ namespace Klaus {
       var items: string[] = [];
       for (var i = 0; i < listTargets.length; i++) {
         var s = sessions[listTargets[i]];
-        items.push((isBusyState(s.serverState) ? "\u2026 " : "") + s.title);
+        items.push(sessionListLabel(s.title, isBusyState(s.serverState), s.serverState === "error", !!s.uploadPending));
       }
       uiOverlay("Chats", items, listIndex);
     }
@@ -900,11 +917,22 @@ namespace Klaus {
       }
     }
 
+    // Softkey that lights up for a key press; Call lights whichever softkey reads Send.
+    function softkeyIndex(key: string): number {
+      if (key === "SoftLeft") return 0;
+      if (key === "Enter" || key === " ") return 1;
+      if (key === "SoftRight") return 2;
+      if (key === "Call") return softkeysFor(mode, "", canResume, notesMode).indexOf("Send");
+      return -1;
+    }
+
     document.addEventListener("keydown", function (event: KeyboardEvent): void {
       if (event.repeat) return;
-      var action = mapKey(mode, keyOf(event), !composer.value, canResume);
+      var key = keyOf(event);
+      var action = mapKey(mode, key, !composer.value, canResume);
       if (action === "none") return;
-      if (action !== "discard") discardArmed = false;
+      uiKeyDown(softkeyIndex(key));
+      if (action !== "discard" && discardArmed) { discardArmed = false; refreshBanner(); }
       if (action === "back") {
         say("");
         if (handleBack()) event.preventDefault();
@@ -914,6 +942,8 @@ namespace Klaus {
       say("");
       run(action);
     });
+
+    document.addEventListener("keyup", function (): void { uiKeyUp(); });
 
     composer.addEventListener("focus", function (): void { if (mode === "idle") setMode("typing"); });
     composer.addEventListener("blur", function (): void { if (mode === "typing" || mode === "rename") setMode("idle"); });
@@ -968,7 +998,7 @@ namespace Klaus {
     updateView();
     schedulePrime();
     function markOffline(): void {
-      if (connState === "CONNECTED") { connState = "UNREACHABLE"; uiConn(connState); }
+      if (connState === "CONNECTED") { connState = "UNREACHABLE"; uiConn(connState); refreshBanner(); }
     }
 
     function probe(): void {
@@ -980,6 +1010,7 @@ namespace Klaus {
         var was = connState;
         connState = state;
         uiConn(state);
+        refreshBanner();
         if (state !== "CONNECTED") return;
         if (notes) notes.flush();
         var n = retryAllQueued();

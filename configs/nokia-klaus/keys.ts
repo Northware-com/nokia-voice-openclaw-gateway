@@ -30,7 +30,7 @@ namespace Klaus {
   export function mapKey(mode: Mode, key: string, inputEmpty: boolean, canResume?: boolean): Action {
     switch (mode) {
       case "recording":
-        if (key === "Call") return "send";
+        if (key === "Call" || key === "SoftRight") return "send";
         if (key === "Enter" || key === " ") return "pause";
         if (key === "Backspace") return "discard";
         if (key === "SoftLeft" || key === "Escape") return "cancel";
@@ -62,9 +62,10 @@ namespace Klaus {
   }
 
   // Softkey labels [left, centre, right] per mode. In Notes the right key returns to the chats.
-  export function softkeysFor(mode: Mode, elapsed: string, canResume?: boolean, notes?: boolean): string[] {
+  // The recording timer lives in the state banner, so both clip states share Delete/Send.
+  export function softkeysFor(mode: Mode, _elapsed: string, canResume?: boolean, notes?: boolean): string[] {
     switch (mode) {
-      case "recording": return ["Cancel", "Pause", elapsed];
+      case "recording": return ["Delete", "Pause", "Send"];
       case "paused": return ["Delete", canResume ? "Resume" : "Send", "Send"];
       case "typing": return ["Clear", "Send", "Voice"];
       case "rename": return ["Clear", "Save", "Cancel"];
@@ -73,6 +74,49 @@ namespace Klaus {
       case "confirm": return ["Cancel", "Archive", ""];
       default: return ["Type", "Talk", notes ? "Chat" : "Menu"];
     }
+  }
+
+  // At-a-glance state strip above the softkeys. Glyphs are limited to ones the
+  // Nokia 6300 font renders as plain text (no colour emoji): ● ❚❚ ✕ ↑ ↻ !
+  export type BannerKind = "rec" | "paused" | "discard" | "sending" | "queued" | "offline" | "failed";
+  export interface Banner { kind: BannerKind; icon: string; text: string; }
+  export interface BannerState {
+    mode: Mode; elapsed: string; discardArmed?: boolean; notes?: boolean;
+    sending?: boolean; failed?: boolean; stalled?: boolean; queued?: number; connected?: boolean;
+  }
+
+  export function stateBanner(s: BannerState): Banner | null {
+    var what = s.notes ? "note" : "clip";
+    if (s.mode === "recording" || s.mode === "paused") {
+      if (s.discardArmed) return { kind: "discard", icon: "✕", text: "Delete " + s.elapsed + " " + what + "? Back again" };
+      if (s.mode === "paused") return { kind: "paused", icon: "❚❚", text: "Paused " + s.elapsed };
+      return { kind: "rec", icon: "●", text: (s.notes ? "Note " : "Recording ") + s.elapsed };
+    }
+    if (s.mode !== "idle") return null;
+    if (s.failed) return { kind: "failed", icon: "!", text: "Failed · Menu › Retry last" };
+    if (s.stalled) return { kind: "failed", icon: "!", text: "No reply yet · Menu › Retry" };
+    if (s.sending) return { kind: "sending", icon: "↑", text: s.notes ? "Saving note…" : "Sending…" };
+    if (s.queued) {
+      var n = s.queued > 1 ? s.queued + " " + what + "s" : (s.notes ? "Note" : "Message");
+      return s.connected
+        ? { kind: "queued", icon: "↻", text: n + " queued · sending soon" }
+        : { kind: "offline", icon: "↻", text: "Offline · " + n.toLowerCase() + " queued" };
+    }
+    return null;
+  }
+
+  // Colour class for the one-line notice: errors red, waits amber, confirmations green.
+  export function noticeKind(text: string): string {
+    if (/fail|error|unavailable|denied|could not|unsupported|no audio|cannot/i.test(text)) return "error";
+    if (/offline|queued|not connected|not sent|cancel|discard|waiting|still|maximum|only one|first/i.test(text)) return "warn";
+    if (/saved|renamed|created|archived|back online|read aloud (on|off)|^sent/i.test(text)) return "ok";
+    return "info";
+  }
+
+  // Chat list row: state marker first so pending/failed/queued chats stand out.
+  export function sessionListLabel(title: string, busy: boolean, failed: boolean, queued: boolean): string {
+    var mark = failed ? "! " : busy ? "… " : queued ? "↻ " : "";
+    return mark + title;
   }
 
   // Message focus: -1 means "live" (nothing selected, pinned to newest).
