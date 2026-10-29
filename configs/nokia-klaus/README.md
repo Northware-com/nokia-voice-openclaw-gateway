@@ -95,7 +95,7 @@ Idle keys:
 |-----|--------|
 | Centre (OK) | Start recording |
 | SoftLeft | Focus the composer (typing) |
-| SoftRight | Menu: 1 New chat, 2 Rename, 3 Archive (confirm), 4 Retry last, 5 Read aloud on/off, 6 Keys (a one-screen key list); a digit picks the item at once |
+| SoftRight | Menu: 1 New chat, 2 Rename, 3 Archive (confirm), 4 Retry last, 5 Read aloud on/off, 6 Vibrate on/off, 7 Keys (a one-screen key list); a digit picks the item at once |
 | ↑ / ↓ | Focus previous / next message (full-row highlight). ↓ past the newest returns to live |
 | ← / →, 4 / 6 | Previous / next open chat (wraps, skips archived) |
 | 1 / 9 | Oldest / newest message |
@@ -123,6 +123,20 @@ While recording or paused:
 Clips are recorded as Ogg/Opus at 16 kbps (about 3.4 KB per second of speech); a recorder that rejects the bitrate option falls back to its default.
 
 When Gecko's `MediaRecorder.pause()` is missing, Pause stops the recorder and keeps the clip; it is only uploaded on Send. The timer excludes paused time.
+
+## Vibration
+
+Short vibrations confirm what happened without looking at the screen (`navigator.vibrate`; phones without a vibrator stay silent):
+
+| Event | Pattern |
+|---|---|
+| Recorder started (also on resume) | one tick (40 ms) |
+| Paused | double tick |
+| Clip, text or quick reply sent | one firm pulse (90 ms) |
+| Klaus reply or saved note arrived | triple tick |
+| Error notice | two long pulses, at most once every 4 s |
+
+Menu › Vibrate switches them off and on (a sample tick when switching on); the choice is kept across restarts (`klaus.haptics`).
 
 ## Quick replies
 

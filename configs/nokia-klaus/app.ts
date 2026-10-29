@@ -6,6 +6,7 @@
 type LegacyNavigator = Navigator & {
   getUserMedia?: (constraints: MediaStreamConstraints, success: (stream: MediaStream) => void, failure: (error: Error) => void) => void;
   mozAudioChannelManager?: { volumeControlChannel: string };
+  vibrate?: (pattern: number[]) => boolean;
 };
 
 declare var NOKIA_RUNTIME_CONFIG: Klaus.RuntimeConfig | undefined;
@@ -36,6 +37,8 @@ namespace Klaus {
     var mode: Mode = "idle";
     var selected = -1;              // focused message index, -1 = live/newest
     var autoRead = loadSetting("autoread", true);
+    var haptics = loadSetting("haptics", true);
+    var lastErrorBuzz = 0;
     var listIndex = 0;              // menu / session-list cursor
     var listTargets: number[] = []; // session-list item → session index
     var thinkingTicker: any = null;
@@ -75,13 +78,28 @@ namespace Klaus {
     var notesSess = blankSession("Notes \u2192 Plato");
     notesSess.id = "notes";
     var notes: NotesBox | null = cfg.notesUrl && cfg.notesToken
-      ? createNotesBox(cfg.notesUrl, cfg.notesToken, notesChanged, function (text: string): void { if (notesMode) say(text); })
+      ? createNotesBox(cfg.notesUrl, cfg.notesToken, notesChanged, function (text: string): void { if (notesMode) say(text); },
+          function (saved: boolean): void { buzz(saved ? "arrived" : "error"); })
       : null;
     if (notes) notesSess.messages = notes.log;
 
     function cur(): LocalSession { return notesMode ? notesSess : sessions[active]; }
     function isActive(sess: LocalSession): boolean { return sess.id === cur().id; }
-    function say(message: string): void { uiStatus(message); }
+    function say(message: string): void {
+      uiStatus(message);
+      if (message && noticeKind(message) === "error") buzz("error");
+    }
+
+    // Vibrate when enabled (Menu › Vibrate). Errors buzz at most every 4 s so a retry loop
+    // cannot keep the phone shaking.
+    function buzz(kind: Haptic): void {
+      if (!haptics || !nav.vibrate) return;
+      if (kind === "error") {
+        if (Date.now() - lastErrorBuzz < 4000) return;
+        lastErrorBuzz = Date.now();
+      }
+      try { nav.vibrate(HAPTICS[kind]); } catch (_e) { /* no vibrator */ }
+    }
     function persist(): void {
       if (!persistSessions(sessions, active)) say("Storage unavailable; changes may not persist.");
     }
@@ -524,6 +542,9 @@ namespace Klaus {
       var settled = sess.serverState === "complete" || sess.serverState === "cancelled";
       if (!(settled && (next === "pending" || next === "idle"))) sess.serverState = next;
       persist();
+      for (var k = oldCount; k < msgs.length; k++) {
+        if (msgs[k].role === "assistant") { buzz("arrived"); break; }
+      }
       if (autoRead && !busy) {
         for (var i = oldCount; i < msgs.length; i++) {
           if (msgs[i].role === "assistant") ttsEnqueue(msgs[i].text, sess.id);
@@ -699,6 +720,7 @@ namespace Klaus {
           canResume = typeof (rec as any).pause === "function" && typeof (rec as any).resume === "function";
           rec.start();
           recStart = Date.now();
+          buzz("start");
           refreshSoftkeys();
           say("");
           if (stopRequested) stopRecording();
@@ -750,6 +772,7 @@ namespace Klaus {
         if (isActive(sess)) player.src = sessionMedia[sess.id];
       } catch (_e) { /* playback copy is optional */ }
       say("");
+      buzz("send");
       ttsNext();
       if (sess === notesSess && notes) notes.add(blob, null);
       else { addVoiceTurn(sess, ms); submitTurn(sess, blob, null, true); }
@@ -780,6 +803,7 @@ namespace Klaus {
       recAccum += Date.now() - recStart;
       if (recTicker) { clearInterval(recTicker); recTicker = null; }
       setMode("paused");
+      buzz("pause");
       if (canResume) {
         try { (recorder as any).pause(); } catch (_e) { canResume = false; }
       }
@@ -794,6 +818,7 @@ namespace Klaus {
       try { (recorder as any).resume(); } catch (_e) { cancelLocalCapture("Recording failed. Press OK to retry."); return; }
       recStart = Date.now();
       setMode("recording");
+      buzz("start");
       recTicker = setInterval(refreshSoftkeys, 1000);
       say("");
     }
@@ -833,13 +858,15 @@ namespace Klaus {
       if (!text) { say("Type a message first."); return; }
       composer.value = "";
       exitInput();
+      buzz("send");
       if (notesMode && notes) notes.add(null, text);
       else submitTurn(cur(), null, text, true);
     }
 
     // ── Menu, session list, confirm ─────────────────────────────────────────
     function menuItems(): string[] {
-      return ["New chat", "Rename", "Archive", "Retry last", "Read aloud: " + (autoRead ? "on" : "off"), "Keys"];
+      return ["New chat", "Rename", "Archive", "Retry last", "Read aloud: " + (autoRead ? "on" : "off"),
+        "Vibrate: " + (haptics ? "on" : "off"), "Keys"];
     }
 
     function openMenu(): void { listIndex = 0; setMode("menu"); uiOverlay("Menu", menuItems(), listIndex, undefined, true); }
@@ -890,7 +917,7 @@ namespace Klaus {
     function sendQuick(index: number): void {
       var text = quickItems[index];
       closeOverlay();
-      if (text) submitTurn(cur(), null, text, true);
+      if (text) { buzz("send"); submitTurn(cur(), null, text, true); }
     }
 
     function moveList(delta: number): void {
@@ -929,7 +956,8 @@ namespace Klaus {
       else if (choice === 2) openConfirm();
       else if (choice === 3) retryLast();
       else if (choice === 4) toggleAutoRead();
-      else if (choice === 5) openHelp();
+      else if (choice === 5) toggleHaptics();
+      else if (choice === 6) openHelp();
     }
 
     // ── Reading ─────────────────────────────────────────────────────────────
@@ -938,6 +966,13 @@ namespace Klaus {
       saveSetting("autoread", autoRead);
       if (!autoRead) ttsStop();
       say("Read aloud " + (autoRead ? "on" : "off") + ".");
+    }
+
+    function toggleHaptics(): void {
+      haptics = !haptics;
+      saveSetting("haptics", haptics);
+      buzz("start"); // feel the change when switching on
+      say("Vibrate " + (haptics ? "on" : "off") + ".");
     }
 
     function playRecording(sess: LocalSession): void {

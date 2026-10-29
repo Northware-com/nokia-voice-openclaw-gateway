@@ -18,7 +18,7 @@ namespace Klaus {
   function noteClipKey(id: string): string { return "note:" + id; }
 
   export function createNotesBox(url: string, token: string,
-    changed: () => void, notice: (text: string) => void): NotesBox {
+    changed: () => void, notice: (text: string) => void, settled?: (saved: boolean) => void): NotesBox {
     var cfg: RuntimeConfig = { bridgeUrl: url, bridgeToken: token };
     var box: NotesBox = { log: [], queue: [], sending: false, add: add, flush: flush };
     var retryTimer: any = null;
@@ -58,6 +58,7 @@ namespace Klaus {
       box.log.push({ role: "assistant", text: saved !== null ? "Saved: " + saved : problem || "Not saved." });
       save();
       changed();
+      if (settled) settled(saved !== null);
       flush();
     }
 

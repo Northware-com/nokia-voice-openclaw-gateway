@@ -54,6 +54,7 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   const tickers = {};
   let nextTimer = 1;
   const utterances = [];
+  const vibrations = [];
   const clock = {t: 1700000000000};
   class FakeDate extends Date { static now() { return clock.t; } }
   const player = {paused: true, addEventListener() {}, pause() {this.paused = true;}, play() {this.paused = false; return {catch() {}};}, removeAttribute() {delete this.src;}};
@@ -72,7 +73,8 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
     localStorage: {getItem(key) {return storage.has(key) ? storage.get(key) : null;}, setItem(key, value) {storage.set(key, value);}},
     document,
     window: {addEventListener(name, fn) {handlers[name] = fn;}},
-    navigator: {getUserMedia(_constraints, ok, fail) {requests.push({ok, fail});}},
+    navigator: Object.assign({getUserMedia(_constraints, ok, fail) {requests.push({ok, fail});}},
+      options.noVibrate ? {} : {vibrate(pattern) { vibrations.push(Array.from(pattern)); return true; }}),
     URL: {createObjectURL() {return `blob:test-${++nextUrl}`;}, revokeObjectURL(url) {revoked.push(url);}},
     Blob,
     crypto: {getRandomValues(arr) { for (let i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256); return arr; }},
@@ -124,7 +126,7 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   // End every utterance now (the fake speechSynthesis otherwise ends them on a later tick);
   // stale callbacks are ignored by tts.ts, and queued items start and end in turn.
   const finishSpeech = () => { for (let done = 0; done < utterances.length;) { const u = utterances[done++]; if (u.onend) u.onend(); } };
-  return {context, nodes, requests, xhrRequests, recorders, key, grant, handlers, storage, revoked, utterances,
+  return {context, nodes, requests, xhrRequests, recorders, key, grant, handlers, storage, revoked, utterances, vibrations,
     intervals: pollTimers, pollTimers, tickers, clock, status, banner, transcript, thinking, softkeys, conn, activePolls, finishSpeech, composer, firePrime, primeTimers,
     get stopped() {return stopped;}};
 }

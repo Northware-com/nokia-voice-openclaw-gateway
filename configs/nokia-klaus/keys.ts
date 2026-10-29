@@ -129,7 +129,7 @@ namespace Klaus {
   export function noticeKind(text: string): string {
     if (/fail|error|unavailable|denied|could not|unsupported|no audio|cannot/i.test(text)) return "error";
     if (/offline|queued|not connected|not sent|cancel|discard|waiting|still|maximum|only one|first/i.test(text)) return "warn";
-    if (/saved|renamed|created|archived|back online|read aloud (on|off)|^sent/i.test(text)) return "ok";
+    if (/saved|renamed|created|archived|back online|read aloud (on|off)|vibrate (on|off)|^sent/i.test(text)) return "ok";
     return "info";
   }
 
@@ -227,6 +227,14 @@ namespace Klaus {
     "*  notes for Plato",
     "Back  cancel / discard"
   ];
+
+  // Short vibrations, distinct by rhythm so they read without looking: one tick when the
+  // recorder starts, a double tick on pause, one firm pulse on send, a triple tick when a
+  // reply or saved note arrives and two long pulses for an error.
+  export type Haptic = "start" | "pause" | "send" | "arrived" | "error";
+  export var HAPTICS: { [kind: string]: number[] } = {
+    start: [40], pause: [25, 70, 25], send: [90], arrived: [30, 60, 30, 60, 30], error: [200, 100, 200]
+  };
 
   // Speed dial on the chat list: 1 Notes for Plato, 2 a new Klaus chat (recording at once),
   // 3 the previous chat. Labels are short enough for three chips across 240 px.
