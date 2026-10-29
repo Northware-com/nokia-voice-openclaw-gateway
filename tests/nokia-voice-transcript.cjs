@@ -61,6 +61,7 @@ const a = text => ({role: 'assistant', text});
   assert.ok(!h.utterances.some(x => /Voice clip/.test(x.text)), 'placeholders are never spoken');
 
   // 5 on the focused placeholder plays the recording instead of reading a reply.
+  h.finishSpeech();
   h.key('ArrowUp'); h.key('ArrowUp');
   h.key('5');
   assert.equal(h.nodes.player.paused, false, 'the clip plays');

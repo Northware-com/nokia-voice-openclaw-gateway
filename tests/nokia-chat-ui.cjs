@@ -249,6 +249,8 @@ function pausable(rec) {
   respond(h, last(h, isPoll('srv-inc')), 200, {state: 'complete',
     messages: [{role: 'user', text: 'one'}, {role: 'assistant', text: 'two'}]});
   assert.equal(h.nodes.transcript.children[0], firstRow, 'existing rows are kept, not re-rendered');
+  assert.equal(h.nodes.transcript.children[1].className, 'msg bot reading', 'the new reply is outlined while it is read aloud');
+  h.finishSpeech();
   assert.equal(h.nodes.transcript.children[1].className, 'msg bot');
   assert.equal(h.thinking(), '', 'thinking bubble hidden once complete');
   assert.equal(h.activePolls().length, 0, 'polling stops once complete');

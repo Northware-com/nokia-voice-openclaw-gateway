@@ -106,7 +106,7 @@ namespace Klaus {
 
   function clearList(): void {
     while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
-    rendered = []; renderedTexts = []; selectedRow = -1; emptyEl = null;
+    rendered = []; renderedTexts = []; selectedRow = -1; emptyEl = null; readingRow = -1;
   }
 
   // Render a session's messages. Appends only new rows when the already-rendered prefix
@@ -169,6 +169,16 @@ namespace Klaus {
     } else if (scroll) {
       uiScrollBottom();
     }
+  }
+
+  // Mark the message being read aloud (-1 clears).
+  var readingRow = -1;
+  export function uiReading(index: number): void {
+    if (readingRow >= 0 && rendered[readingRow]) {
+      rendered[readingRow].className = rendered[readingRow].className.replace(/\s*\breading\b/g, "");
+    }
+    readingRow = index;
+    if (index >= 0 && rendered[index]) rendered[index].className += " reading";
   }
 
   // Scroll one page and return the first message row in view (or -1 at the bottom).

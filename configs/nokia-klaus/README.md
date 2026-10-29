@@ -36,6 +36,7 @@ When something needs attention, a 30 px banner with an icon and a colour takes t
 | Queued | `↻ Message queued · sending soon` | dark amber |
 | Offline | `↻ Offline · message queued` | grey |
 | Failed / no reply | `! Failed · Menu › Retry last` | dark red |
+| Reading aloud | `))) Reading · 5 stops` | teal, mint line |
 
 The archive confirm explains itself on screen.
 
@@ -87,7 +88,7 @@ Idle keys:
 | ← / →, 4 / 6 | Previous / next open chat (wraps, skips archived) |
 | 1 / 9 | Oldest / newest message |
 | 2 / 8 | Page up / down |
-| 5 | Read the focused message aloud (latest reply if none); a focused clip placeholder, or a chat with no reply, plays your last clip; again stops playback |
+| 5 | Read the focused message aloud (latest reply if none); a focused clip placeholder, or a chat with no reply, plays your last clip. While this chat is being read (banner `))) Reading · 5 stops`), 5 stops reading and drops queued replies; again stops playback |
 | 0 | Quick replies: 1-9 sends one at once (see below) |
 | # | Chat list (most recent first, with previews) |
 | 3 | New chat |
@@ -145,7 +146,7 @@ Notes queue in order while the service is unreachable (for example away from hom
 - **Unsent clips**: every clip is written to IndexedDB before it is uploaded and gets a request id (`outboxId`, persisted with the session) that every resend reuses, so the bridge deduplicates it. Clips recorded without signal, or whose upload was cut off, are resent automatically after a successful connection probe, including after an app restart, or with Menu › Retry last; the clip is deleted once the bridge accepts it. Back discards a queued clip. Retry last also resends the last typed message after a failure.
 - **Network loss**: the connection is re-probed every 15 s while offline (60 s while connected) and on the system `online` event; a failed send or the `offline` event turns the dot red at once. Typed messages that never reached the bridge are queued (persisted as `textPending`) and resent on reconnect. A turn POST lost mid-flight is resent with the same `X-Request-Id`, which the bridge deduplicates, once the bridge is reachable again, also after an app restart; a poll showing the bridge already has that request id ends the resend. Back cancels a queued resend.
 - **Cancel**: Back fires `POST .../cancel` with `{turnRequestId}`; polling continues until the server confirms.
-- **TTS**: replies are queued per session. Danish text (æøå or common Danish words) uses a `da-*` voice when installed, otherwise English.
+- **TTS**: replies are queued per session. The message being read gets a mint outline and the `Reading` banner; both clear when speech ends, is stopped with 5, or a recording starts. Turning auto read-aloud off stops current speech. Danish text (æøå or common Danish words) uses a `da-*` voice when installed, otherwise English.
 - **Persistence**: `localStorage` key `klaus.sessions.v2` (migrates `v1`), capped at 1 MiB by trimming oldest messages. Setting `klaus.autoread`.
 
 ## Source layout
@@ -155,7 +156,7 @@ Notes queue in order while the service is unreachable (for example away from hom
 | `keys.ts` | Pure key map, softkey labels, state banner, notice colours, chat-list rows and titles, focus/backoff/time/language helpers (unit tested) |
 | `storage.ts` | Session model, localStorage persistence, IndexedDB clip store |
 | `api.ts` | mozSystem XHR and connection probe |
-| `tts.ts` | Serialized speech queue |
+| `tts.ts` | Serialized speech queue, current item and change callback |
 | `ui.ts` | DOM rendering (textContent only) |
 | `notes.ts` | Notes queue for the Plato inbox service |
 | `app.ts` | Controller: recording, turns, polling, menus and key dispatch |
@@ -174,6 +175,7 @@ node tests/nokia-quick-notes.cjs # Notes screen, notes queue, restart resend
 node tests/nokia-chat-list.cjs   # chat list rows, automatic titles, times, recency
 node tests/nokia-voice-transcript.cjs # clip placeholders, transcript first
 node tests/nokia-quick-replies.cjs # 0 + digit quick replies
+node tests/nokia-read-aloud.cjs  # 5 read/stop, reading banner and outline
 ```
 
 ## Notes

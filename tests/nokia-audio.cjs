@@ -121,8 +121,11 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   // Fire pending microphone-prime timers (app launch, after a recording, on visible).
   const firePrime = () => Object.keys(primeTimers).forEach(id => { if (primeTimers[id].active) { primeTimers[id].active = false; primeTimers[id].fn(); } });
   const activePolls = () => Object.keys(pollTimers).filter(id => pollTimers[id].active);
+  // End every utterance now (the fake speechSynthesis otherwise ends them on a later tick);
+  // stale callbacks are ignored by tts.ts, and queued items start and end in turn.
+  const finishSpeech = () => { for (let done = 0; done < utterances.length;) { const u = utterances[done++]; if (u.onend) u.onend(); } };
   return {context, nodes, requests, xhrRequests, recorders, key, grant, handlers, storage, revoked, utterances,
-    intervals: pollTimers, pollTimers, tickers, clock, status, banner, transcript, thinking, softkeys, conn, activePolls, composer, firePrime, primeTimers,
+    intervals: pollTimers, pollTimers, tickers, clock, status, banner, transcript, thinking, softkeys, conn, activePolls, finishSpeech, composer, firePrime, primeTimers,
     get stopped() {return stopped;}};
 }
 {

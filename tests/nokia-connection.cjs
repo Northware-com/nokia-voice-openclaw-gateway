@@ -226,6 +226,7 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
       id: 'srv-rep', state: 'complete',
       messages: [{role: 'user', text: 'q'}, {role: 'assistant', text: 'Reply to replay'}]
     });
+    h.finishSpeech(); // auto read-aloud has finished; 5 while it reads would stop it
     const beforeUtterances = h.utterances.length;
     h.key('5'); // replay
     assert.ok(h.utterances.length > beforeUtterances, '5 key must enqueue new TTS utterance for replay');

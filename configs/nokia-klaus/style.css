@@ -28,6 +28,8 @@ body { display: flex; flex-direction: column; position: relative; }
 .user .bubble { background: #1bfc9e; color: #051111; }
 .bot .bubble { background: #142424; color: #f0fff8; border: 1px solid #0b6b6b; }
 .msg.sel .bubble { border: 2px solid #ffffff; }
+.msg.reading { border-left-color: #1bfc9e; }
+.bot.reading .bubble { border: 2px solid #1bfc9e; }
 .voice .bubble { background: #0d2020; color: #b6f2da; border: 2px dashed #1bfc9e; font-style: italic; }
 #thinking .bubble { color: #b6f2da; font-style: italic; }
 #echo .bubble { color: #051111; opacity: 0.75; }
@@ -49,6 +51,7 @@ body { display: flex; flex-direction: column; position: relative; }
 #banner.queued { background: #5c4a00; color: #ffe08a; }
 #banner.offline { background: #4a4f52; color: #ffffff; }
 #banner.failed { background: #8a0f0f; }
+#banner.reading { background: #0e4f45; color: #e7fff5; border-top: 2px solid #1bfc9e; line-height: 26px; }
 
 #composer { flex: 0 0 30px; height: 30px; width: 100%; margin: 0; padding: 0 6px; border: 0; border-top: 1px solid #075555; border-radius: 0; background: #0d2020; color: #ffffff; font: 16px sans-serif; }
 #composer:focus { outline: none; background: #142828; border-top: 2px solid #1bfc9e; }

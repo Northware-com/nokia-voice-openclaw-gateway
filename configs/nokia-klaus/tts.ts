@@ -4,13 +4,24 @@ namespace Klaus {
   var queue: Array<{ text: string; sessionId: string }> = [];
   var speaking = false;
   var token = 0; // guards stale onend callbacks after cancel/replay
+  var current: { text: string; sessionId: string } | null = null;
+  var onChange: (() => void) | null = null;
+
+  // Called whenever speech starts or stops, so the screen can show what is being read.
+  export function ttsOnChange(fn: () => void): void { onChange = fn; }
+
+  // The item being spoken now, or null.
+  export function ttsCurrent(): { text: string; sessionId: string } | null { return current; }
+
+  function changed(): void { if (onChange) { try { onChange(); } catch (_e) { /* UI only */ } } }
 
   function voices(): Array<{ lang: string }> {
     try { return speechSynthesis.getVoices ? speechSynthesis.getVoices() : []; } catch (_e) { return []; }
   }
 
   export function ttsNext(): void {
-    if (speaking || !queue.length) return;
+    if (speaking) return;
+    if (!queue.length) { if (current) { current = null; changed(); } return; }
     var item = queue.shift()!;
     var myToken = ++token;
     try {
@@ -19,6 +30,8 @@ namespace Klaus {
       utter.onend = function (): void { if (token === myToken) { speaking = false; ttsNext(); } };
       utter.onerror = function (): void { if (token === myToken) { speaking = false; ttsNext(); } };
       speaking = true;
+      current = item;
+      changed();
       speechSynthesis.speak(utter);
     } catch (_e) { speaking = false; ttsNext(); }
   }
@@ -46,5 +59,12 @@ namespace Klaus {
     try { speechSynthesis.cancel(); } catch (_e) { /* unsupported */ }
     token++;
     speaking = false;
+    if (current) { current = null; changed(); }
+  }
+
+  // Stop reading altogether: the current utterance and everything queued.
+  export function ttsStop(): void {
+    queue = [];
+    ttsInterrupt();
   }
 }

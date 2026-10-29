@@ -116,6 +116,8 @@ namespace Klaus {
         state.sending = !!sending[sess.id];
         state.queued = (sess.uploadPending || resend[sess.id]) && !sending[sess.id] ? 1 : 0;
       }
+      var speech = ttsCurrent();
+      state.reading = !!speech && speech.sessionId === sess.id;
       uiBanner(stateBanner(state), mode === "typing" || mode === "rename");
     }
 
@@ -177,6 +179,7 @@ namespace Klaus {
       uiSelect(-1, true);
       refreshThinking();
       refreshSoftkeys();
+      refreshReading();
     }
 
     // ── Notes ───────────────────────────────────────────────────────────────
@@ -503,6 +506,7 @@ namespace Klaus {
       uiMessages(sess.id, sess.messages);
       if (selected >= sess.messages.length) selected = -1;
       refreshThinking();
+      refreshReading();
       if (sess.serverState === "error") say("Klaus error: " + (r.error || "unknown") + ".");
       else if (sess.serverState === "cancelled") say("Request cancelled.");
       else if (sess.serverState === "complete" && oldCount !== msgs.length) say(""); // stale notices end with the reply
@@ -899,7 +903,7 @@ namespace Klaus {
     function toggleAutoRead(): void {
       autoRead = !autoRead;
       saveSetting("autoread", autoRead);
-      if (!autoRead) ttsInterrupt();
+      if (!autoRead) ttsStop();
       say("Read aloud " + (autoRead ? "on" : "off") + ".");
     }
 
@@ -916,6 +920,8 @@ namespace Klaus {
     function readSelected(): void {
       if (!player.paused) { player.pause(); say("Playback stopped."); return; }
       var sess = cur();
+      var speech = ttsCurrent();
+      if (speech && speech.sessionId === sess.id) { ttsStop(); say("Stopped reading."); return; }
       var focused = selected >= 0 ? sess.messages[selected] : null;
       if (focused && focused.voice) {
         if (sessionMedia[sess.id] && !busy) playRecording(sess);
@@ -926,7 +932,7 @@ namespace Klaus {
       for (var i = sess.messages.length - 1; !text && i >= 0; i--) {
         if (sess.messages[i].role === "assistant") text = sess.messages[i].text;
       }
-      if (text) { ttsSpeakNow(text, sess.id); say("Reading aloud…"); return; }
+      if (text) { ttsSpeakNow(text, sess.id); return; }
       if (sessionMedia[sess.id] && !busy) { playRecording(sess); return; }
       say("Nothing to read yet.");
     }
@@ -1040,6 +1046,15 @@ namespace Klaus {
       cancelLocalCapture(); releasePrimed(); player.removeAttribute("src");
       Object.keys(sessionMedia).forEach(function (id: string): void { URL.revokeObjectURL(sessionMedia[id]); });
     });
+
+    // Reading aloud: banner plus a mint outline on the message being read.
+    function refreshReading(): void {
+      var speech = ttsCurrent();
+      var sess = cur();
+      uiReading(speech && speech.sessionId === sess.id ? readingIndex(sess.messages, speech.text) : -1);
+      refreshBanner();
+    }
+    ttsOnChange(refreshReading);
 
     // ── Init ────────────────────────────────────────────────────────────────
     // A turn in flight when the app closed is resent with its persisted request id; one

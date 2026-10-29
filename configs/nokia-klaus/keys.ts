@@ -82,11 +82,12 @@ namespace Klaus {
 
   // At-a-glance state strip above the softkeys. Glyphs are limited to ones the
   // Nokia 6300 font renders as plain text (no colour emoji): ● ❚❚ ✕ ↑ ↻ !
-  export type BannerKind = "rec" | "paused" | "discard" | "sending" | "queued" | "offline" | "failed";
+  export type BannerKind = "rec" | "paused" | "discard" | "sending" | "queued" | "offline" | "failed" | "reading";
   export interface Banner { kind: BannerKind; icon: string; text: string; }
   export interface BannerState {
     mode: Mode; elapsed: string; discardArmed?: boolean; notes?: boolean;
     sending?: boolean; failed?: boolean; stalled?: boolean; queued?: number; connected?: boolean;
+    reading?: boolean;
   }
 
   export function stateBanner(s: BannerState): Banner | null {
@@ -99,6 +100,7 @@ namespace Klaus {
     if (s.mode !== "idle") return null;
     if (s.failed) return { kind: "failed", icon: "!", text: "Failed · Menu › Retry last" };
     if (s.stalled) return { kind: "failed", icon: "!", text: "No reply yet · Menu › Retry" };
+    if (s.reading) return { kind: "reading", icon: ")))", text: "Reading · 5 stops" };
     if (s.sending) return { kind: "sending", icon: "↑", text: s.notes ? "Saving note…" : "Sending…" };
     if (s.queued) {
       var n = s.queued > 1 ? s.queued + " " + what + "s" : (s.notes ? "Note" : "Message");
@@ -107,6 +109,13 @@ namespace Klaus {
         : { kind: "offline", icon: "↻", text: "Offline · " + n.toLowerCase() + " queued" };
     }
     return null;
+  }
+
+  // Index of the message being read aloud: the newest message with that text, or -1.
+  export function readingIndex(messages: Array<{ text: string }>, text: string | null): number {
+    if (text === null) return -1;
+    for (var i = messages.length - 1; i >= 0; i--) if (messages[i].text === text) return i;
+    return -1;
   }
 
   // Colour class for the one-line notice: errors red, waits amber, confirmations green.
