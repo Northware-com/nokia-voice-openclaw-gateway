@@ -377,7 +377,7 @@ function pausable(rec) {
   const h = harness(new Map(), BRIDGE);
   const placeholder = () => h.nodes.transcript.children.find(c => c.className.includes('empty'));
   assert.equal(placeholder().hidden, false, 'an empty idle chat shows the hint');
-  record(h);
+  h.key('SoftLeft'); h.composer.value = 'hello'; h.key('Enter');
   assert.match(h.thinking(), /sending/);
   assert.equal(placeholder().hidden, true, 'no "No messages yet" next to a pending turn');
   respond(h, last(h, isCreate), 201, {id: 'srv-empty'});

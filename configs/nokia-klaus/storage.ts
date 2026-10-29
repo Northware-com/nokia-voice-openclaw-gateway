@@ -3,7 +3,11 @@ namespace Klaus {
   // "cancelling": cancel POST fired, poll continues until server confirms.
   export type SessionState = "idle" | "pending" | "complete" | "error" | "cancelled" | "uncertain" | "cancelling";
 
-  export type ApiMessage = { role: "user" | "assistant"; text: string };
+  // voice: a local placeholder for a clip whose transcript the bridge has not returned.
+  export type ApiMessage = { role: "user" | "assistant"; text: string; voice?: boolean };
+
+  // A sent clip: at = server messages before it, ms = clip length.
+  export type VoiceTurn = { at: number; ms: number };
 
   export type LocalSession = {
     id: string;                 // local stable key (may be legacy non-UUID)
@@ -27,12 +31,38 @@ namespace Klaus {
     outboxAudio: boolean;       // that turn is the clip in IndexedDB (else lastText)
     updatedAt: number;          // ms epoch of the last activity (chat list order and time)
     named: boolean;             // renamed by hand; otherwise the title follows the content
+    voiceTurns: VoiceTurn[];    // clips shown as placeholders until a transcript arrives
   };
 
   export var STORAGE_KEY = "klaus.sessions.v2";
   var LEGACY_V1_KEY = "klaus.local.sessions.v1";
   export var MAX_SESSIONS = 128;
   var STORE_CAP = 1048576;
+
+  export var MAX_VOICE_TURNS = 64;
+
+  export function voiceLabel(ms: number): string { return "Voice clip · " + formatElapsed(ms); }
+
+  // Server messages only (placeholders removed).
+  export function serverMessages(messages: ApiMessage[]): ApiMessage[] {
+    return messages.filter(function (m: ApiMessage): boolean { return !m.voice; });
+  }
+
+  // Transcript first: a clip shows as "Voice clip · 0:07" where it was sent, unless the
+  // bridge returned a user message (the transcript) in that place.
+  export function mergeVoice(server: ApiMessage[], turns: VoiceTurn[]): ApiMessage[] {
+    var sorted = turns.slice().sort(function (a: VoiceTurn, b: VoiceTurn): number { return a.at - b.at; });
+    var out: ApiMessage[] = [];
+    var idx = 0;
+    for (var i = 0; i < sorted.length; i++) {
+      var at = Math.min(sorted[i].at, server.length);
+      while (idx < at) out.push(server[idx++]);
+      if (server[at] && server[at].role === "user") continue;
+      out.push({ role: "user", text: voiceLabel(sorted[i].ms), voice: true });
+    }
+    while (idx < server.length) out.push(server[idx++]);
+    return out;
+  }
 
   export function isBusyState(state: SessionState): boolean {
     return state === "pending" || state === "uncertain" || state === "cancelling";
@@ -71,7 +101,7 @@ namespace Klaus {
       pollTimer: null, pollXhr: null,
       uploadPending: false, uploadBlob: null, textPending: false,
       outboxId: null, outboxAudio: false,
-      updatedAt: stamp(), named: false
+      updatedAt: stamp(), named: false, voiceTurns: []
     };
   }
 
@@ -94,7 +124,7 @@ namespace Klaus {
           typeof m.text === "string" && m.text.length <= 65536) {
         totalChars += m.text.length;
         if (totalChars > 65536) break;
-        out.push({ role: m.role, text: m.text });
+        out.push(m.voice === true ? { role: m.role, text: m.text, voice: true } : { role: m.role, text: m.text });
       }
     }
     return out;
@@ -119,6 +149,9 @@ namespace Klaus {
     s.outboxAudio = item.outboxAudio === true;
     s.updatedAt = typeof item.updatedAt === "number" ? item.updatedAt : 0;
     s.named = item.named === true || (item.named === undefined && !isDefaultTitle(s.title));
+    s.voiceTurns = Array.isArray(item.voiceTurns) ? item.voiceTurns.filter(function (v: any): boolean {
+      return v && typeof v.at === "number" && v.at >= 0 && typeof v.ms === "number" && v.ms >= 0;
+    }).slice(-MAX_VOICE_TURNS).map(function (v: any): VoiceTurn { return { at: v.at, ms: v.ms }; }) : [];
     return s;
   }
 
@@ -169,7 +202,7 @@ namespace Klaus {
       archived: s.archived, pendingSince: s.pendingSince, lastText: s.lastText,
       uploadPending: s.uploadPending, textPending: s.textPending,
       outboxId: s.outboxId, outboxAudio: s.outboxAudio,
-      updatedAt: s.updatedAt, named: s.named
+      updatedAt: s.updatedAt, named: s.named, voiceTurns: s.voiceTurns.slice()
     };
   }
 

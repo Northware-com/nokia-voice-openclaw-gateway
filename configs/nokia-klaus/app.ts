@@ -482,7 +482,7 @@ namespace Klaus {
         if (again.audio) dropClip(sess);
         clearOutbox(sess);
       }
-      var msgs = Array.isArray(r.messages) ? validateMessages(r.messages) : [];
+      var msgs = mergeVoice(Array.isArray(r.messages) ? serverMessages(validateMessages(r.messages)) : [], sess.voiceTurns);
       // Never let an older response shrink a completed transcript.
       if (msgs.length < sess.messages.length && sess.serverState === "complete") return;
       var oldCount = sess.messages.length;
@@ -661,8 +661,9 @@ namespace Klaus {
             chunks = [];
             if (!sendOnStop) { heldClip = blob; refreshSoftkeys(); return; } // pause fallback: keep the clip
             generation++;
+            var ms = recElapsed();
             endRecordingMode();
-            deliverClip(sess, blob);
+            deliverClip(sess, blob, ms);
           };
           canResume = typeof (rec as any).pause === "function" && typeof (rec as any).resume === "function";
           rec.start();
@@ -689,7 +690,29 @@ namespace Klaus {
       }
     }
 
-    function deliverClip(sess: LocalSession, blob: Blob): void {
+    // Show a sent clip in the transcript until the bridge returns its transcript.
+    function addVoiceTurn(sess: LocalSession, ms: number): void {
+      sess.voiceTurns.push({ at: serverMessages(sess.messages).length, ms: ms });
+      if (sess.voiceTurns.length > MAX_VOICE_TURNS) sess.voiceTurns.shift();
+      remerge(sess);
+    }
+
+    function remerge(sess: LocalSession): void {
+      sess.messages = mergeVoice(serverMessages(sess.messages), sess.voiceTurns);
+      if (isActive(sess)) {
+        uiMessages(sess.id, sess.messages);
+        if (selected >= sess.messages.length) selected = -1;
+      }
+    }
+
+    // Back discarded a clip that never reached the bridge: drop its placeholder too.
+    function dropLastVoiceTurn(sess: LocalSession): void {
+      var at = serverMessages(sess.messages).length;
+      var last = sess.voiceTurns[sess.voiceTurns.length - 1];
+      if (last && last.at === at) { sess.voiceTurns.pop(); remerge(sess); }
+    }
+
+    function deliverClip(sess: LocalSession, blob: Blob, ms: number): void {
       try {
         if (sessionMedia[sess.id]) URL.revokeObjectURL(sessionMedia[sess.id]);
         sessionMedia[sess.id] = URL.createObjectURL(blob);
@@ -698,16 +721,17 @@ namespace Klaus {
       say("");
       ttsNext();
       if (sess === notesSess && notes) notes.add(blob, null);
-      else submitTurn(sess, blob, null, true);
+      else { addVoiceTurn(sess, ms); submitTurn(sess, blob, null, true); }
     }
 
     // Send the clip: from a held (stopped) clip, or by stopping a live/paused recorder.
     function stopRecording(): void {
       if (heldClip) {
         var blob = heldClip;
+        var ms = recElapsed();
         generation++;
         endRecordingMode();
-        deliverClip(cur(), blob);
+        deliverClip(cur(), blob, ms);
       } else if (recorder) {
         sendOnStop = true; // a pause-fallback stop still in flight sends on completion
         say("Sending…");
@@ -850,23 +874,31 @@ namespace Klaus {
       say("Read aloud " + (autoRead ? "on" : "off") + ".");
     }
 
+    function playRecording(sess: LocalSession): void {
+      try {
+        var result = player.play() as any;
+        if (result && typeof result.catch === "function") result.catch(function (): void { say("Playback failed."); });
+        say("Playing your recording… 5 stops.");
+      } catch (_e) { say("Playback unavailable."); }
+    }
+
+    // 5: the focused message (a clip placeholder plays the recording), else the latest reply,
+    // else your last clip.
     function readSelected(): void {
       if (!player.paused) { player.pause(); say("Playback stopped."); return; }
       var sess = cur();
-      var text: string | null = null;
-      if (selected >= 0 && sess.messages[selected]) text = sess.messages[selected].text;
+      var focused = selected >= 0 ? sess.messages[selected] : null;
+      if (focused && focused.voice) {
+        if (sessionMedia[sess.id] && !busy) playRecording(sess);
+        else say("No transcript for this clip yet.");
+        return;
+      }
+      var text: string | null = focused ? focused.text : null;
       for (var i = sess.messages.length - 1; !text && i >= 0; i--) {
         if (sess.messages[i].role === "assistant") text = sess.messages[i].text;
       }
       if (text) { ttsSpeakNow(text, sess.id); say("Reading aloud…"); return; }
-      if (sessionMedia[sess.id] && !busy) {
-        try {
-          var result = player.play() as any;
-          if (result && typeof result.catch === "function") result.catch(function (): void { say("Playback failed."); });
-          say("Playing your recording… 5 stops.");
-        } catch (_e) { say("Playback unavailable."); }
-        return;
-      }
+      if (sessionMedia[sess.id] && !busy) { playRecording(sess); return; }
       say("Nothing to read yet.");
     }
 
@@ -883,7 +915,7 @@ namespace Klaus {
       }
       var sess = cur();
       if (isBusyState(sess.serverState)) { cancelSession(sess); say("Cancelled."); return true; }
-      if (sess.uploadPending) { dropClip(sess); clearOutbox(sess); persist(); say("Unsent clip discarded."); return true; }
+      if (sess.uploadPending) { dropClip(sess); clearOutbox(sess); dropLastVoiceTurn(sess); persist(); say("Unsent clip discarded."); return true; }
       if (selected >= 0) { focusMessage(-1, true); return true; }
       return false;
     }

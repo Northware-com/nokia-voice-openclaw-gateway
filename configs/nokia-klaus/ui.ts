@@ -96,7 +96,7 @@ namespace Klaus {
 
   function makeRow(msg: ApiMessage): HTMLElement {
     var row = document.createElement("div");
-    row.className = "msg " + (msg.role === "user" ? "user" : "bot");
+    row.className = "msg " + (msg.role === "user" ? "user" : "bot") + (msg.voice ? " voice" : "");
     var bubble = document.createElement("div");
     bubble.className = "bubble";
     bubble.textContent = msg.text;

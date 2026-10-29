@@ -135,11 +135,13 @@ namespace Klaus {
   }
 
   // Automatic chat title: the first thing you said (typed or transcribed), else the first
-  // reply; "" while the chat is empty.
+  // reply when the chat opened with a clip that has no transcript; "" while empty.
   export function autoTitle(messages: Array<{ role: string; text: string; voice?: boolean }>): string {
     var pick = "";
-    for (var i = 0; i < messages.length && !pick; i++) {
-      if (messages[i].role === "user" && !messages[i].voice) pick = messages[i].text;
+    for (var i = 0; i < messages.length; i++) {
+      if (messages[i].role !== "user") continue;
+      if (!messages[i].voice) pick = messages[i].text;
+      break;
     }
     for (var j = 0; j < messages.length && !pick; j++) {
       if (messages[j].role === "assistant") pick = messages[j].text;

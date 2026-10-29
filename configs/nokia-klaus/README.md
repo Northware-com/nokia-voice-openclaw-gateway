@@ -57,7 +57,7 @@ The archive confirm explains itself on screen.
 +------------------------------+
 ```
 
-Chats named `Conversation N` take an automatic title from the first thing you said (typed, or the transcript when the bridge returns one), else from the first reply; Menu › Rename fixes a title by hand and stops automatic titles for that chat.
+Chats named `Conversation N` take an automatic title from the first thing you said (typed, or the transcript when the bridge returns one), else from the first reply when the chat opened with an untranscribed clip; Menu › Rename fixes a title by hand and stops automatic titles for that chat.
 
 ## Keys
 
@@ -86,7 +86,7 @@ Idle keys:
 | ← / →, 4 / 6 | Previous / next open chat (wraps, skips archived) |
 | 1 / 9 | Oldest / newest message |
 | 2 / 8 | Page up / down |
-| 5 | Read the focused message aloud (latest reply if none); plays your last clip if there is no reply; again stops playback |
+| 5 | Read the focused message aloud (latest reply if none); a focused clip placeholder, or a chat with no reply, plays your last clip; again stops playback |
 | 0 | Toggle auto read-aloud for new replies (persisted) |
 | # | Chat list (most recent first, with previews) |
 | 3 | New chat |
@@ -121,6 +121,7 @@ Notes queue in order while the service is unreachable (for example away from hom
 - **Ready to record**: the app reopens the last chat and opens the microphone 300 ms after it becomes visible (and again after each recording), so Centre starts the recorder in about 3 ms instead of 60-125 ms. The stream is released whenever the app is hidden or closed; KaiOS shows its microphone indicator while the app is in front.
 - **Sessions**: up to 128 chats (open + archived). Archived chats are hidden from navigation but keep polling and speaking. Each chat stores its last activity time (`updatedAt`: sending, a new message, opening it) and whether it was renamed by hand (`named`); older stores are migrated on load.
 - **Pending turns**: a thinking bubble shows `sending`/`thinking`/`cancelling` with an elapsed timer. Polling backs off from 1.5 s to 8 s and stops after `pollTimeoutMs` (default 180000) with "no reply yet"; Menu › Retry last resumes polling.
+- **Voice clips in the chat**: a sent clip appears at once as a dashed `Voice clip · 0:07` bubble on your side. Transcript first: when the bridge returns a user message for that turn (the transcript), it takes the placeholder's place; otherwise the placeholder stays before Klaus's reply. Placeholders are stored per chat (`voiceTurns`: position and length), never read aloud, and `5` on a focused one plays the recording (`No transcript for this clip yet.` after a restart). Back on an unsent clip removes its placeholder too. The bridge currently returns no transcript for audio turns, so voice chats show placeholders until it does.
 - **Transcript**: new messages are appended without re-rendering; scroll position is preserved unless you were already at the bottom. The empty-chat hint is hidden while the first turn is pending.
 - **Unsent clips**: every clip is written to IndexedDB before it is uploaded and gets a request id (`outboxId`, persisted with the session) that every resend reuses, so the bridge deduplicates it. Clips recorded without signal, or whose upload was cut off, are resent automatically after a successful connection probe, including after an app restart, or with Menu › Retry last; the clip is deleted once the bridge accepts it. Back discards a queued clip. Retry last also resends the last typed message after a failure.
 - **Network loss**: the connection is re-probed every 15 s while offline (60 s while connected) and on the system `online` event; a failed send or the `offline` event turns the dot red at once. Typed messages that never reached the bridge are queued (persisted as `textPending`) and resent on reconnect. A turn POST lost mid-flight is resent with the same `X-Request-Id`, which the bridge deduplicates, once the bridge is reachable again, also after an app restart; a poll showing the bridge already has that request id ends the resend. Back cancels a queued resend.
@@ -152,6 +153,7 @@ node tests/nokia-chat-ui.cjs    # softkeys, pause/resume/Call send, typing, menu
 node tests/nokia-reliability.cjs # reconnect probes, queued text, idempotent resend
 node tests/nokia-quick-notes.cjs # Notes screen, notes queue, restart resend
 node tests/nokia-chat-list.cjs   # chat list rows, automatic titles, times, recency
+node tests/nokia-voice-transcript.cjs # clip placeholders, transcript first
 ```
 
 ## Notes

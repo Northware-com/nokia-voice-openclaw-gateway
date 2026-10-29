@@ -28,6 +28,7 @@ body { display: flex; flex-direction: column; position: relative; }
 .user .bubble { background: #1bfc9e; color: #051111; }
 .bot .bubble { background: #142424; color: #f0fff8; border: 1px solid #0b6b6b; }
 .msg.sel .bubble { border: 2px solid #ffffff; }
+.voice .bubble { background: #0d2020; color: #b6f2da; border: 2px dashed #1bfc9e; font-style: italic; }
 #thinking .bubble { color: #b6f2da; font-style: italic; }
 #echo .bubble { color: #051111; opacity: 0.75; }
 .empty { margin: 24px 12px 0; color: #a9d6c6; font-size: 15px; line-height: 1.35; text-align: center; }
