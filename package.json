@@ -9,12 +9,13 @@
     "node": ">=24"
   },
   "scripts": {
-    "build": "bash configs/nokia-bridge/build.sh && bash configs/nokia-klaus/build.sh && bash configs/nokia-launcher/build.sh",
+    "build": "bash configs/nokia-bridge/build.sh && bash configs/nokia-notes/build.sh && bash configs/nokia-klaus/build.sh && bash configs/nokia-launcher/build.sh",
+    "build:notes": "bash configs/nokia-notes/build.sh",
     "build:bridge": "bash configs/nokia-bridge/build.sh",
     "build:app": "bash configs/nokia-klaus/build.sh",
     "build:launcher": "bash configs/nokia-launcher/build.sh",
     "test": "npm run test:node && npm run test:python",
-    "test:node": "node tests/nokia-audio.cjs && node tests/nokia-sessions.cjs && node tests/nokia-connection.cjs && node tests/nokia-chat-ui.cjs && node tests/nokia-reliability.cjs && node tests/nokia-launcher.cjs && node tests/nokia-bridge.cjs",
+    "test:node": "node tests/nokia-audio.cjs && node tests/nokia-sessions.cjs && node tests/nokia-connection.cjs && node tests/nokia-chat-ui.cjs && node tests/nokia-reliability.cjs && node tests/nokia-launcher.cjs && node tests/nokia-bridge.cjs && node tests/nokia-notes.cjs && node tests/nokia-quick-notes.cjs",
     "test:python": "python3 tests/nokia-policy.py && python3 tests/nokia-packaging.py"
   },
   "dependencies": {

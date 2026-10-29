@@ -51,6 +51,7 @@ Idle keys:
 | # | Chat list overlay |
 | 3 | New chat |
 | 7 | Archive chat (confirm with OK or 7, Back cancels) |
+| * | Notes for Plato (see below); SoftRight (Chat), Back or * returns |
 | Backspace | Cancel the pending request, else discard an unsent clip, else clear message focus, else let KaiOS close the app |
 
 While typing, digits and Backspace go to the input; Enter or Call sends a JSON `{text}` turn; Backspace on an empty input (or Escape) leaves typing.
@@ -68,6 +69,12 @@ While recording or paused:
 Clips are recorded as Ogg/Opus at 16 kbps (about 3.4 KB per second of speech); a recorder that rejects the bitrate option falls back to its default.
 
 When Gecko's `MediaRecorder.pause()` is missing, Pause stops the recorder and keeps the clip; it is only uploaded on Send. The timer excludes paused time.
+
+## Notes for Plato
+
+`*` opens the **Notes → Plato** screen (purple bar) when the package was built with `NOKIA_NOTES_URL`. OK records a voice note and Call sends it; the left key types a note. Notes go to the quick-note inbox service ([`configs/nokia-notes`](../nokia-notes/README.md)) with their own token, never to Klaus; each note becomes a dated Markdown file and the phone shows `Saved: <one-line summary>`.
+
+Notes queue in order while the service is unreachable (for example away from home Wi-Fi); the queue (`klaus.notes.v1`) and clips (IndexedDB `note:<id>`) survive restarts and are sent with their original request id on launch, on reconnect, when opening Notes and every 30 s after a failure. Chat navigation keys are paused on the Notes screen.
 
 ## Behaviour
 
@@ -90,11 +97,12 @@ When Gecko's `MediaRecorder.pause()` is missing, Pause stops the recorder and ke
 | `api.ts` | mozSystem XHR and connection probe |
 | `tts.ts` | Serialized speech queue |
 | `ui.ts` | DOM rendering (textContent only) |
+| `notes.ts` | Notes queue for the Plato inbox service |
 | `app.ts` | Controller: recording, turns, polling, menus and key dispatch |
 
 ## Build
 
-`./build.sh [output.zip]` type-checks and concatenates the files above into an ES5 `app.js`, validates the manifest and builds the package. `app.js` is generated and not committed. For a connected package set `NOKIA_BRIDGE_URL` and `NOKIA_CONFIG_FILE` (see `config.js`); optional `NOKIA_POLL_TIMEOUT_MS` overrides the poll timeout.
+`./build.sh [output.zip]` type-checks and concatenates the files above into an ES5 `app.js`, validates the manifest and builds the package. `app.js` is generated and not committed. For a connected package set `NOKIA_BRIDGE_URL` and `NOKIA_CONFIG_FILE` (see `config.js`); optional `NOKIA_POLL_TIMEOUT_MS` overrides the poll timeout; optional `NOKIA_NOTES_URL` with `NOKIA_NOTES_CONFIG_FILE` (private `{"token"}`) enables Notes.
 
 ```
 node tests/nokia-audio.cjs      # audio lifecycle (also exports the fake-DOM harness)
@@ -102,6 +110,7 @@ node tests/nokia-sessions.cjs   # session switch/create/reload
 node tests/nokia-connection.cjs # bridge, TTS, archive
 node tests/nokia-chat-ui.cjs    # softkeys, pause/resume/Call send, typing, menu, key map
 node tests/nokia-reliability.cjs # reconnect probes, queued text, idempotent resend
+node tests/nokia-quick-notes.cjs # Notes screen, notes queue, restart resend
 ```
 
 ## Notes

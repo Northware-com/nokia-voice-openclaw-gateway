@@ -1,0 +1,17 @@
+# systemd user unit. Install: copy to ~/.config/systemd/user/, adjust WorkingDirectory,
+# set ExecStart to your node (>= 24) binary, then: systemctl --user daemon-reload && systemctl --user enable --now nokia-notes
+[Unit]
+Description=Nokia quick-note inbox (voice/text notes to Markdown)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/nokia-voice-openclaw-gateway/configs/nokia-notes
+Environment=NOKIA_NOTES_CONFIG=%h/.config/nokia-notes/config.json
+ExecStart=/usr/bin/node dist/main.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=default.target

@@ -6,6 +6,7 @@ body { display: flex; flex-direction: column; position: relative; }
 
 #bar { flex: 0 0 18px; height: 18px; display: flex; align-items: center; padding: 0 4px; background: #121d1d; border-bottom: 1px solid #075555; font: bold 12px sans-serif; line-height: 18px; }
 #bar.rec { background: #3a1010; border-bottom-color: #ff5a3c; }
+#bar.notes { background: #2a2140; border-bottom-color: #b48cff; }
 #session-index { flex: 0 0 auto; color: #1bfc9e; margin-right: 5px; }
 #session-title { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #connection { flex: 0 0 auto; margin-left: 4px; font-size: 12px; color: #4a8a7a; }
