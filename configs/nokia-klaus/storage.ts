@@ -25,6 +25,8 @@ namespace Klaus {
     textPending: boolean;       // typed turn not yet accepted by the bridge; resent on reconnect
     outboxId: string | null;    // X-Request-Id of a turn not yet accepted; reused by every resend
     outboxAudio: boolean;       // that turn is the clip in IndexedDB (else lastText)
+    updatedAt: number;          // ms epoch of the last activity (chat list order and time)
+    named: boolean;             // renamed by hand; otherwise the title follows the content
   };
 
   export var STORAGE_KEY = "klaus.sessions.v2";
@@ -68,9 +70,19 @@ namespace Klaus {
       archived: false, pendingSince: 0, lastText: null,
       pollTimer: null, pollXhr: null,
       uploadPending: false, uploadBlob: null, textPending: false,
-      outboxId: null, outboxAudio: false
+      outboxId: null, outboxAudio: false,
+      updatedAt: stamp(), named: false
     };
   }
+
+  // Strictly increasing activity stamp, so chats touched in the same millisecond keep their order.
+  var lastStamp = 0;
+  export function stamp(): number {
+    lastStamp = Math.max(Date.now(), lastStamp + 1);
+    return lastStamp;
+  }
+
+  export function touch(sess: LocalSession): void { sess.updatedAt = stamp(); }
 
   // Bounded: 128 messages per session, 65536 chars per message, 64k aggregate chars per session.
   export function validateMessages(arr: any[]): ApiMessage[] {
@@ -105,6 +117,8 @@ namespace Klaus {
     s.textPending = item.textPending === true && !!s.lastText;
     s.outboxId = typeof item.outboxId === "string" ? item.outboxId : null;
     s.outboxAudio = item.outboxAudio === true;
+    s.updatedAt = typeof item.updatedAt === "number" ? item.updatedAt : 0;
+    s.named = item.named === true || (item.named === undefined && !isDefaultTitle(s.title));
     return s;
   }
 
@@ -154,7 +168,8 @@ namespace Klaus {
       lastRequestId: s.lastRequestId, cancelRequestId: s.cancelRequestId,
       archived: s.archived, pendingSince: s.pendingSince, lastText: s.lastText,
       uploadPending: s.uploadPending, textPending: s.textPending,
-      outboxId: s.outboxId, outboxAudio: s.outboxAudio
+      outboxId: s.outboxId, outboxAudio: s.outboxAudio,
+      updatedAt: s.updatedAt, named: s.named
     };
   }
 

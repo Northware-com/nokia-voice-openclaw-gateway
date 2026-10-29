@@ -67,3 +67,14 @@ body { display: flex; flex-direction: column; position: relative; }
 .item { padding: 8px 8px; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid #0d2020; }
 .item.sel { background: #1bfc9e; color: #051111; font-weight: bold; }
 .note { margin: 10px 8px; font-size: 16px; line-height: 1.35; color: #e7fff5; }
+
+/* Chat list: title + time, then a one-line preview; marker colour follows the chat state */
+.item.chat { padding: 4px 8px 5px; white-space: normal; }
+.chat .l1 { display: flex; align-items: baseline; }
+.chat .t { flex: 1 1 auto; min-width: 0; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat .tm { flex: 0 0 auto; margin-left: 6px; font-size: 14px; color: #8fd9bd; }
+.chat .pv { font-size: 14px; line-height: 18px; color: #a9c9bf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat.busy .pv { color: #ffc94d; }
+.chat.failed .pv { color: #ff9c86; }
+.chat.queued .pv { color: #ffc94d; }
+.chat.sel .tm, .chat.sel .pv { color: #063b2a; }

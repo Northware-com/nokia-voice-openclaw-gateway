@@ -295,9 +295,13 @@ function pausable(rec) {
   h.key('#');
   assert.deepEqual(h.softkeys(), ['Close', 'Open', '']);
   assert.equal(h.nodes['overlay-list'].children.length, 3);
-  assert.equal(h.nodes['overlay-list'].children[0].className, 'item sel', 'list starts on current chat');
-  h.key('ArrowDown'); h.key('ArrowDown'); h.key('Enter');
+  assert.equal(h.nodes['overlay-list'].children[0].className, 'item chat sel', 'list starts on current chat, most recent first');
+  assert.match(h.nodes['overlay-title'].textContent, /Chats · 3/);
+  // Opened order 1 (now), 3, 2: the second row is always the previous chat.
+  h.key('ArrowDown'); h.key('Enter');
   assert.equal(h.nodes['session-index'].textContent, '3/3');
+  h.key('#'); h.key('ArrowDown'); h.key('Enter');
+  assert.equal(h.nodes['session-index'].textContent, '1/3', 'Down + OK toggles between the last two chats');
   assert.ok(h.nodes.overlay.hidden);
 }
 
@@ -455,7 +459,10 @@ function pausable(rec) {
   assert.equal(h.nodes['overlay-list'].children[0].className, 'note');
   h.key('Backspace');
   h.key('#');
-  assert.equal(h.nodes['overlay-list'].children[0].textContent, '↻ Conversation 1', 'chat list marks queued chats');
+  const row = h.nodes['overlay-list'].children[0];
+  assert.equal(row.children[0].children[0].textContent, '↻ Conversation 1', 'chat list marks queued chats');
+  assert.equal(row.children[1].textContent, 'Queued · sends when online');
+  assert.match(row.className, /\bqueued\b/);
 }
 {
   // Notice colours and the connection word.

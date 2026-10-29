@@ -37,7 +37,27 @@ When something needs attention, a 30 px banner with an icon and a colour takes t
 | Offline | `↻ Offline · message queued` | grey |
 | Failed / no reply | `! Failed · Menu › Retry last` | dark red |
 
-The chat list marks chats that are pending (`…`), failed (`!`) or have a queued clip (`↻`). The archive confirm explains itself on screen.
+The archive confirm explains itself on screen.
+
+### Chat list
+
+`#` opens the chat list, most recently used first, so the open chat is on top and the previous one is one Down away. Each chat takes two lines:
+
+```
++------------------------------+
+| Chats · 6                    |
+|[What's on the sho…       now]|  title + time (now, 5m, 14:05, Yday, Mon, 12 Oct)
+|[Milk, eggs, coffee and so…  ]|  preview: latest message, "You: …" for your own
+| Remind me what the p…    40m |
+| Klaus is thinking…           |  amber while a reply is pending
+| ! Draft a reply to …    Yday |
+| Failed · open, Menu › Retry  |  red when the last turn failed
+| ↻ Conversation 6      12 Oct |
+| Queued · sends when online   |  amber with a queued clip or message
++------------------------------+
+```
+
+Chats named `Conversation N` take an automatic title from the first thing you said (typed, or the transcript when the bridge returns one), else from the first reply; Menu › Rename fixes a title by hand and stops automatic titles for that chat.
 
 ## Keys
 
@@ -68,7 +88,7 @@ Idle keys:
 | 2 / 8 | Page up / down |
 | 5 | Read the focused message aloud (latest reply if none); plays your last clip if there is no reply; again stops playback |
 | 0 | Toggle auto read-aloud for new replies (persisted) |
-| # | Chat list overlay |
+| # | Chat list (most recent first, with previews) |
 | 3 | New chat |
 | 7 | Archive chat (confirm with OK or 7, Back cancels) |
 | * | Notes for Plato (see below); SoftRight (Chat), Back or * returns |
@@ -99,7 +119,7 @@ Notes queue in order while the service is unreachable (for example away from hom
 ## Behaviour
 
 - **Ready to record**: the app reopens the last chat and opens the microphone 300 ms after it becomes visible (and again after each recording), so Centre starts the recorder in about 3 ms instead of 60-125 ms. The stream is released whenever the app is hidden or closed; KaiOS shows its microphone indicator while the app is in front.
-- **Sessions**: up to 128 chats (open + archived). Archived chats are hidden from navigation but keep polling and speaking.
+- **Sessions**: up to 128 chats (open + archived). Archived chats are hidden from navigation but keep polling and speaking. Each chat stores its last activity time (`updatedAt`: sending, a new message, opening it) and whether it was renamed by hand (`named`); older stores are migrated on load.
 - **Pending turns**: a thinking bubble shows `sending`/`thinking`/`cancelling` with an elapsed timer. Polling backs off from 1.5 s to 8 s and stops after `pollTimeoutMs` (default 180000) with "no reply yet"; Menu › Retry last resumes polling.
 - **Transcript**: new messages are appended without re-rendering; scroll position is preserved unless you were already at the bottom. The empty-chat hint is hidden while the first turn is pending.
 - **Unsent clips**: every clip is written to IndexedDB before it is uploaded and gets a request id (`outboxId`, persisted with the session) that every resend reuses, so the bridge deduplicates it. Clips recorded without signal, or whose upload was cut off, are resent automatically after a successful connection probe, including after an app restart, or with Menu › Retry last; the clip is deleted once the bridge accepts it. Back discards a queued clip. Retry last also resends the last typed message after a failure.
@@ -112,7 +132,7 @@ Notes queue in order while the service is unreachable (for example away from hom
 
 | File | Purpose |
 |---|---|
-| `keys.ts` | Pure key map, softkey labels, state banner, notice colours, focus/backoff/time/language helpers (unit tested) |
+| `keys.ts` | Pure key map, softkey labels, state banner, notice colours, chat-list rows and titles, focus/backoff/time/language helpers (unit tested) |
 | `storage.ts` | Session model, localStorage persistence, IndexedDB clip store |
 | `api.ts` | mozSystem XHR and connection probe |
 | `tts.ts` | Serialized speech queue |
@@ -131,6 +151,7 @@ node tests/nokia-connection.cjs # bridge, TTS, archive
 node tests/nokia-chat-ui.cjs    # softkeys, pause/resume/Call send, typing, menu, key map
 node tests/nokia-reliability.cjs # reconnect probes, queued text, idempotent resend
 node tests/nokia-quick-notes.cjs # Notes screen, notes queue, restart resend
+node tests/nokia-chat-list.cjs   # chat list rows, automatic titles, times, recency
 ```
 
 ## Notes

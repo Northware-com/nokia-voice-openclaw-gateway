@@ -204,6 +204,7 @@ namespace Klaus {
     function switchTo(index: number): void {
       cancelLocalCapture();
       active = index;
+      touch(sessions[active]);
       persist();
       updateView();
     }
@@ -283,7 +284,19 @@ namespace Klaus {
       if (isActive(sess)) refreshBanner();
     }
 
+    // Unnamed chats take their title from the first thing said (typed or transcribed).
+    function retitle(sess: LocalSession): void {
+      if (sess.named || sess === notesSess) return;
+      var source: Array<{ role: string; text: string }> = sess.messages.length ? sess.messages
+        : sess.lastText ? [{ role: "user", text: sess.lastText }] : [];
+      var t = autoTitle(source);
+      if (!t || t === sess.title) return;
+      sess.title = t;
+      if (isActive(sess)) refreshTopbar();
+    }
+
     function afterStateChange(sess: LocalSession): void {
+      retitle(sess);
       persist();
       if (isActive(sess)) refreshThinking();
     }
@@ -311,6 +324,7 @@ namespace Klaus {
       sess.pendingSince = Date.now();
       sess.lastText = text;
       sess.textPending = !blob;
+      touch(sess);
       delete stalled[sess.id];
       if (blob) sess.uploadBlob = blob;
       sess.uploadPending = false;
@@ -473,6 +487,8 @@ namespace Klaus {
       if (msgs.length < sess.messages.length && sess.serverState === "complete") return;
       var oldCount = sess.messages.length;
       sess.messages = msgs;
+      if (msgs.length !== oldCount) touch(sess);
+      retitle(sess);
       if (r.runId) sess.runId = r.runId;
       var next = (r.state || "idle") as SessionState;
       var settled = sess.serverState === "complete" || sess.serverState === "cancelled";
@@ -755,7 +771,7 @@ namespace Klaus {
     function sendInput(): void {
       var text = (composer.value || "").replace(/^\s+|\s+$/g, "");
       if (mode === "rename") {
-        if (text) { cur().title = text.slice(0, 40); persist(); refreshTopbar(); say("Renamed."); }
+        if (text) { cur().title = text.slice(0, 40); cur().named = true; persist(); refreshTopbar(); say("Renamed."); }
         exitInput();
         return;
       }
@@ -775,11 +791,10 @@ namespace Klaus {
 
     function openSessionList(): void {
       listTargets = [];
-      for (var i = 0; i < sessions.length; i++) {
-        if (sessions[i].archived) continue;
-        if (i === active) listIndex = listTargets.length;
-        listTargets.push(i);
-      }
+      for (var i = 0; i < sessions.length; i++) if (!sessions[i].archived) listTargets.push(i);
+      // Most recent first; the open chat is always the most recently opened.
+      listTargets.sort(function (a: number, b: number): number { return (sessions[b].updatedAt - sessions[a].updatedAt) || (b - a); });
+      listIndex = Math.max(0, listTargets.indexOf(active));
       setMode("sessions");
       renderSessionList();
     }
@@ -800,12 +815,14 @@ namespace Klaus {
     }
 
     function renderSessionList(): void {
-      var items: string[] = [];
+      var rows: SessionRow[] = [];
+      var now = Date.now();
       for (var i = 0; i < listTargets.length; i++) {
         var s = sessions[listTargets[i]];
-        items.push(sessionListLabel(s.title, isBusyState(s.serverState), s.serverState === "error", !!s.uploadPending));
+        rows.push(sessionRow(s.title, s.messages, isBusyState(s.serverState), s.serverState === "error",
+          !!(s.uploadPending || resend[s.id] || s.textPending), s.updatedAt, now));
       }
-      uiOverlay("Chats", items, listIndex);
+      uiSessionList("Chats · " + rows.length, rows, listIndex);
     }
 
     function selectItem(): void {
@@ -992,6 +1009,8 @@ namespace Klaus {
         });
       }
     });
+    sessions.forEach(retitle);
+    touch(sessions[active]); // launching reopens the last chat
     persist();
     setMode("idle");
     uiConn("NOT CONNECTED");

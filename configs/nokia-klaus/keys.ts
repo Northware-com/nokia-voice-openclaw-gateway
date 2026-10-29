@@ -119,6 +119,68 @@ namespace Klaus {
     return mark + title;
   }
 
+  // Default chat names are replaced by an automatic title once the chat has content.
+  export function isDefaultTitle(title: string): boolean {
+    return /^Conversation \d+$/.test(title);
+  }
+
+  // Clip a line of text to max characters at a word boundary, collapsing whitespace.
+  export function clipLine(text: string, max: number): string {
+    var t = text.replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
+    if (t.length <= max) return t;
+    var cut = t.slice(0, max - 1);
+    var space = cut.lastIndexOf(" ");
+    if (space > max / 2) cut = cut.slice(0, space);
+    return cut.replace(/[\s,.;:!?-]+$/, "") + "…";
+  }
+
+  // Automatic chat title: the first thing you said (typed or transcribed), else the first
+  // reply; "" while the chat is empty.
+  export function autoTitle(messages: Array<{ role: string; text: string; voice?: boolean }>): string {
+    var pick = "";
+    for (var i = 0; i < messages.length && !pick; i++) {
+      if (messages[i].role === "user" && !messages[i].voice) pick = messages[i].text;
+    }
+    for (var j = 0; j < messages.length && !pick; j++) {
+      if (messages[j].role === "assistant") pick = messages[j].text;
+    }
+    var t = clipLine(pick.replace(/^[\s"'“”‘’*#>(\[-]+|[\s"'“”‘’*]+$/g, ""), 26);
+    return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
+  }
+
+  // Compact chat-list time: "now", "5m", "14:05" today, "Yday", weekday this week, else "12 Oct".
+  var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  export function relTime(ts: number, now: number): string {
+    if (!ts) return "";
+    var diff = now - ts;
+    if (diff < 60000) return "now";
+    if (diff < 3600000) return Math.floor(diff / 60000) + "m";
+    var d = new Date(ts), n = new Date(now);
+    var startToday = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+    if (ts >= startToday) return d.getHours() + ":" + (d.getMinutes() < 10 ? "0" : "") + d.getMinutes();
+    if (ts >= startToday - 86400000) return "Yday";
+    if (ts >= startToday - 6 * 86400000) return DAYS[d.getDay()];
+    return d.getDate() + " " + MONTHS[d.getMonth()];
+  }
+
+  export type RowKind = "" | "busy" | "failed" | "queued";
+  export interface SessionRow { kind: RowKind; title: string; time: string; preview: string; }
+
+  // Two-line chat-list row: marker + title + time, then a preview of the latest state.
+  export function sessionRow(title: string, messages: Array<{ role: string; text: string }>, busy: boolean,
+                             failed: boolean, queued: boolean, updatedAt: number, now: number): SessionRow {
+    var kind: RowKind = failed ? "failed" : busy ? "busy" : queued ? "queued" : "";
+    var last = messages.length ? messages[messages.length - 1] : null;
+    var preview = failed ? "Failed · open, Menu › Retry"
+      : busy ? "Klaus is thinking…"
+      : queued ? "Queued · sends when online"
+      : !last ? "No messages yet"
+      : (last.role === "user" ? "You: " : "") + clipLine(last.text, 60);
+    // Busy chats say so in the preview; a leading "…" would read as a clipped title.
+    return { kind: kind, title: sessionListLabel(title, false, failed, queued), time: relTime(updatedAt, now), preview: preview };
+  }
+
   // Message focus: -1 means "live" (nothing selected, pinned to newest).
   export function moveFocus(selected: number, count: number, delta: number): number {
     if (!count) return -1;

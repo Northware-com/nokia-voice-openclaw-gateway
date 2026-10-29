@@ -203,6 +203,35 @@ namespace Klaus {
     show(overlayEl, true);
   }
 
+  function span(cls: string, text: string): HTMLElement {
+    var el = document.createElement("span");
+    el.className = cls;
+    el.textContent = text;
+    return el;
+  }
+
+  // Chat list: two lines per chat (marker + title + time, then a preview), state colours.
+  export function uiSessionList(title: string, rows: SessionRow[], selected: number): void {
+    overlayTitle.textContent = title;
+    while (overlayList.firstChild) overlayList.removeChild(overlayList.firstChild);
+    for (var i = 0; i < rows.length; i++) {
+      var row = document.createElement("div");
+      row.className = "item chat" + (rows[i].kind ? " " + rows[i].kind : "") + (i === selected ? " sel" : "");
+      var top = document.createElement("div");
+      top.className = "l1";
+      top.appendChild(span("t", rows[i].title));
+      top.appendChild(span("tm", rows[i].time));
+      row.appendChild(top);
+      var pv = document.createElement("div");
+      pv.className = "pv";
+      pv.textContent = rows[i].preview;
+      row.appendChild(pv);
+      overlayList.appendChild(row);
+      if (i === selected) { try { (row as any).scrollIntoView(false); } catch (_e) { /* old engines */ } }
+    }
+    show(overlayEl, true);
+  }
+
   export function uiOverlayHide(): void { show(overlayEl, false); }
 
   export function uiBarRecording(on: boolean, notes?: boolean, paused?: boolean): void {
