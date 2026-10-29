@@ -23,6 +23,8 @@ namespace Klaus {
     uploadPending: boolean;     // audio blob waiting for connection (persisted; blob lives in IndexedDB)
     uploadBlob: Blob | null;
     textPending: boolean;       // typed turn not yet accepted by the bridge; resent on reconnect
+    outboxId: string | null;    // X-Request-Id of a turn not yet accepted; reused by every resend
+    outboxAudio: boolean;       // that turn is the clip in IndexedDB (else lastText)
   };
 
   export var STORAGE_KEY = "klaus.sessions.v2";
@@ -65,7 +67,8 @@ namespace Klaus {
       lastRequestId: null, cancelRequestId: null,
       archived: false, pendingSince: 0, lastText: null,
       pollTimer: null, pollXhr: null,
-      uploadPending: false, uploadBlob: null, textPending: false
+      uploadPending: false, uploadBlob: null, textPending: false,
+      outboxId: null, outboxAudio: false
     };
   }
 
@@ -100,6 +103,8 @@ namespace Klaus {
     s.lastText = typeof item.lastText === "string" ? item.lastText : null;
     s.uploadPending = item.uploadPending === true;
     s.textPending = item.textPending === true && !!s.lastText;
+    s.outboxId = typeof item.outboxId === "string" ? item.outboxId : null;
+    s.outboxAudio = item.outboxAudio === true;
     return s;
   }
 
@@ -148,7 +153,8 @@ namespace Klaus {
       messages: s.messages.slice(), runId: s.runId,
       lastRequestId: s.lastRequestId, cancelRequestId: s.cancelRequestId,
       archived: s.archived, pendingSince: s.pendingSince, lastText: s.lastText,
-      uploadPending: s.uploadPending, textPending: s.textPending
+      uploadPending: s.uploadPending, textPending: s.textPending,
+      outboxId: s.outboxId, outboxAudio: s.outboxAudio
     };
   }
 

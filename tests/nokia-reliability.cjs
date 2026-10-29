@@ -137,4 +137,83 @@ function typeAndSend(h, text) { h.key('SoftLeft'); h.composer.value = text; h.ke
   assert.match(h.status(), /Offline/);
 }
 
+// ── Persistent outbox: clips survive restarts and resend with one request id ─
+const stored = (storage) => JSON.parse(storage.get('klaus.sessions.v2'))[0];
+{
+  // Recorded with no signal: the clip is kept and resent after a restart.
+  const storage = new Map(), idb = new Map();
+  const h = harness(storage, BRIDGE, {idb});
+  answerProbe(h);
+  record(h);
+  last(h, isCreate).req.onerror();
+  const outboxId = stored(storage).outboxId;
+  assert.ok(outboxId, 'the clip has a persisted request id');
+  assert.equal(idb.size, 1, 'the clip is in IndexedDB');
+  const h2 = harness(storage, BRIDGE, {idb});
+  answerProbe(h2);
+  respond(h2, last(h2, isCreate), 201, {id: 'srv-o'});
+  const turn = last(h2, isTurn);
+  assert.ok(turn.body instanceof Blob, 'the saved clip is uploaded after the restart');
+  assert.equal(turn.headers['X-Request-Id'], outboxId, 'with the request id it was given when recorded');
+  respond(h2, turn, 202, {runId: outboxId, state: 'pending'});
+  assert.equal(stored(storage).outboxId, null, 'accepted turns leave the outbox');
+  assert.equal(idb.size, 0, 'and their clip is deleted');
+}
+{
+  // The app closes while the turn POST is lost: the restart resends the same clip and id.
+  const storage = new Map(), idb = new Map();
+  const h = harness(storage, BRIDGE, {idb});
+  answerProbe(h);
+  record(h);
+  respond(h, last(h, isCreate), 201, {id: 'srv-m'});
+  const first = last(h, isTurn);
+  first.req.onerror();
+  const h2 = harness(storage, BRIDGE, {idb});
+  answerProbe(h2);
+  const again = last(h2, isTurn);
+  assert.ok(again, 'the lost turn is resent after the restart');
+  assert.equal(again.headers['X-Request-Id'], first.headers['X-Request-Id'], 'idempotently');
+  assert.ok(again.body instanceof Blob, 'with the saved clip');
+}
+{
+  // A turn in flight when the app closed that the bridge did receive is not resent.
+  const storage = new Map(), idb = new Map();
+  const h = harness(storage, BRIDGE, {idb});
+  answerProbe(h);
+  typeAndSend(h, 'did it arrive?');
+  respond(h, last(h, isCreate), 201, {id: 'srv-a'});
+  const first = last(h, isTurn); // app closes before the reply
+  const h2 = harness(storage, BRIDGE, {idb});
+  firePoll(h2);
+  respond(h2, last(h2, isPoll('srv-a')), 200, {runId: first.headers['X-Request-Id'], state: 'pending', messages: []});
+  assert.equal(stored(storage).outboxId, null, 'a turn seen by the bridge leaves the outbox');
+  answerProbe(h2);
+  assert.equal(h2.xhrRequests.filter(isTurn).length, 0, 'and is never posted again');
+}
+{
+  // Back discards a queued clip and its request id.
+  const storage = new Map(), idb = new Map();
+  const h = harness(storage, BRIDGE, {idb});
+  answerProbe(h);
+  record(h);
+  last(h, isCreate).req.onerror();
+  assert.equal(h.key('Backspace'), true);
+  assert.equal(stored(storage).outboxId, null);
+  assert.equal(idb.size, 0);
+  const h2 = harness(storage, BRIDGE, {idb});
+  answerProbe(h2);
+  assert.equal(h2.xhrRequests.filter(r => isCreate(r) || isTurn(r)).length, 0, 'nothing is sent after a discard');
+}
+{
+  // A new recording gets a new request id even while an old one is queued.
+  const storage = new Map(), idb = new Map();
+  const h = harness(storage, BRIDGE, {idb});
+  answerProbe(h);
+  record(h);
+  last(h, isCreate).req.onerror();
+  const old = stored(storage).outboxId;
+  h.firePrime(); record(h);
+  assert.notEqual(stored(storage).outboxId, old, 'a fresh clip is a new turn');
+}
+
 console.log('Nokia reliability (reconnect, queue, idempotent resend) checks passed');

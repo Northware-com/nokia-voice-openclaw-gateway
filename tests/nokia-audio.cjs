@@ -24,6 +24,22 @@ class FakeElement {
 
 const PRIME_MS = 300;
 
+// Request objects fire their handler as soon as it is assigned, which keeps tests synchronous.
+function fakeRequest(run) {
+  const req = {result: run()};
+  for (const name of ['onsuccess', 'onupgradeneeded']) Object.defineProperty(req, name, {set(fn) { if (fn) fn(); }});
+  return req;
+}
+function fakeIndexedDB(clips) {
+  const store = {
+    put(blob, key) { clips.set(key, blob); return fakeRequest(() => key); },
+    get(key) { return fakeRequest(() => clips.get(key)); },
+    delete(key) { clips.delete(key); return fakeRequest(() => undefined); },
+  };
+  const db = {createObjectStore() {}, transaction() { return {objectStore() { return store; }}; }};
+  return {open() { return fakeRequest(() => db); }};
+}
+
 function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   const handlers = {};
   const requests = [];
@@ -85,6 +101,8 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
       this.stop = () => {this.state = 'inactive';};
       recorders.push(this);
     },
+    // Optional synchronous IndexedDB stand-in; pass the same Map to simulate a restart.
+    indexedDB: options.idb ? fakeIndexedDB(options.idb) : undefined,
     NOKIA_RUNTIME_CONFIG: bridgeUrl ? Object.assign({bridgeUrl, bridgeToken: 'test-token'}, options.config || {}) : {bridgeUrl: '', bridgeToken: ''},
   };
   vm.runInNewContext(source, context);

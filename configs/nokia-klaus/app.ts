@@ -42,7 +42,7 @@ namespace Klaus {
     var dots = 0;
     var stalled: { [id: string]: boolean } = Object.create(null); // poll timed out
     var sending: { [id: string]: boolean } = Object.create(null); // turn POST in flight
-    var resend: { [id: string]: { requestId: string; blob: Blob | null; text: string | null } } = Object.create(null);
+    var resend: { [id: string]: { requestId: string; blob: Blob | null; text: string | null; audio: boolean } } = Object.create(null);
     var sessionMedia: { [id: string]: string } = Object.create(null); // local recording URLs
 
     // Recording
@@ -218,14 +218,26 @@ namespace Klaus {
       clipDelete(sess.id);
     }
 
+    // The turn was accepted, cancelled or discarded: later turns get a new request id.
+    function clearOutbox(sess: LocalSession): void {
+      delete resend[sess.id];
+      sess.outboxId = null;
+      sess.outboxAudio = false;
+    }
+
     function afterStateChange(sess: LocalSession): void {
       persist();
       if (isActive(sess)) refreshThinking();
     }
 
     // Submit a turn: an audio blob or typed text. The session is marked pending and the
-    // request id persisted before any network call so a duplicate cannot start.
-    function submitTurn(sess: LocalSession, blob: Blob | null, text: string | null): void {
+    // request id persisted before any network call so a duplicate cannot start. A clip is
+    // written to IndexedDB first so it survives a restart mid-request. Retries (fresh=false)
+    // reuse the outbox request id, which the bridge deduplicates.
+    function submitTurn(sess: LocalSession, blob: Blob | null, text: string | null, fresh: boolean): void {
+      if (fresh || !sess.outboxId || sess.outboxAudio !== !!blob) sess.outboxId = makeUUID();
+      sess.outboxAudio = !!blob;
+      if (blob) clipPut(sess.id, blob);
       if (!connected) {
         if (blob) { keepClip(sess, blob); say("Not connected. Clip saved locally; Menu › Retry last."); }
         else { sess.lastText = text; say("Not connected. Message not sent; Menu › Retry last."); }
@@ -233,7 +245,7 @@ namespace Klaus {
         return;
       }
       if (isBusyState(sess.serverState)) { say("Request already in progress. Back cancels, then retry."); return; }
-      var requestId = makeUUID();
+      var requestId = sess.outboxId as string;
       sess.cancelRequestId = null;
       sess.serverState = "pending";
       sess.lastRequestId = requestId;
@@ -279,6 +291,7 @@ namespace Klaus {
                 sess.serverState = (r.state || "pending") as SessionState;
               } catch (_e) { sess.runId = requestId; sess.serverState = "pending"; }
               if (blob) dropClip(sess);
+              clearOutbox(sess);
               sess.textPending = false;
               afterStateChange(sess);
               startPolling(sess);
@@ -299,7 +312,7 @@ namespace Klaus {
             delete sending[sess.id];
             markOffline();
             if (sess.lastRequestId === requestId) {
-              resend[sess.id] = { requestId: requestId, blob: blob, text: text };
+              resend[sess.id] = { requestId: requestId, blob: blob, text: text, audio: !!blob };
               sess.textPending = false;
               sess.serverState = "uncertain";
               afterStateChange(sess);
@@ -311,7 +324,8 @@ namespace Klaus {
     }
 
     function cancelSession(sess: LocalSession): void {
-      delete resend[sess.id];
+      if (sess.outboxAudio) dropClip(sess);
+      clearOutbox(sess);
       if (sess.serverState === "pending" || sess.serverState === "uncertain") {
         sess.serverState = "cancelling";
         if (connected && sess.serverId) {
@@ -388,8 +402,13 @@ namespace Klaus {
       var again = resend[sess.id];
       if (again && sess.lastRequestId === again.requestId && r.runId !== again.requestId &&
           !isBusyState((r.state || "idle") as SessionState)) {
-        if (!sending[sess.id]) postTurn(sess, again.requestId, again.blob, again.text);
+        if (!sending[sess.id] && (!again.audio || again.blob)) postTurn(sess, again.requestId, again.blob, again.text);
         return;
+      }
+      // The lost POST had reached the bridge after all: nothing left to resend.
+      if (again && r.runId === again.requestId) {
+        if (again.audio) dropClip(sess);
+        clearOutbox(sess);
       }
       var msgs = Array.isArray(r.messages) ? validateMessages(r.messages) : [];
       // Never let an older response shrink a completed transcript.
@@ -424,14 +443,14 @@ namespace Klaus {
         return;
       }
       if (sess.uploadPending) {
-        if (sess.uploadBlob) { submitTurn(sess, sess.uploadBlob, null); return; }
+        if (sess.uploadBlob) { submitTurn(sess, sess.uploadBlob, null, false); return; }
         clipGet(sess.id, function (blob: Blob | null): void {
-          if (blob) submitTurn(sess, blob, null);
+          if (blob) submitTurn(sess, blob, null, false);
           else { sess.uploadPending = false; persist(); say("Saved clip is no longer available."); }
         });
         return;
       }
-      if (sess.lastText) { submitTurn(sess, null, sess.lastText); return; }
+      if (sess.lastText) { submitTurn(sess, null, sess.lastText, false); return; }
       say("Nothing to retry.");
     }
 
@@ -441,11 +460,12 @@ namespace Klaus {
       sessions.forEach(function (sess: LocalSession): void {
         var again = resend[sess.id];
         if (again && sess.lastRequestId === again.requestId && sess.serverState === "uncertain" && !sending[sess.id]) {
-          postTurn(sess, again.requestId, again.blob, again.text); n++;
+          if (!again.audio || again.blob) postTurn(sess, again.requestId, again.blob, again.text);
+          n++;
         } else if (isBusyState(sess.serverState)) {
           if (sess.serverId && !sess.pollTimer && !sess.pollXhr) { startPolling(sess); n++; }
         } else if (sess.uploadPending) n++;
-        else if (sess.textPending && sess.lastText) { submitTurn(sess, null, sess.lastText); n++; }
+        else if (sess.textPending && sess.lastText) { submitTurn(sess, null, sess.lastText, false); n++; }
       });
       retryAllClips();
       if (n) refreshThinking();
@@ -457,7 +477,7 @@ namespace Klaus {
         if (sess.uploadPending && !isBusyState(sess.serverState)) {
           clipGet(sess.id, function (blob: Blob | null): void {
             var b = sess.uploadBlob || blob;
-            if (b) submitTurn(sess, b, null);
+            if (b) submitTurn(sess, b, null, false);
           });
         }
       });
@@ -603,7 +623,7 @@ namespace Klaus {
       } catch (_e) { /* playback copy is optional */ }
       say("");
       ttsNext();
-      submitTurn(sess, blob, null);
+      submitTurn(sess, blob, null, true);
     }
 
     // Send the clip: from a held (stopped) clip, or by stopping a live/paused recorder.
@@ -684,7 +704,7 @@ namespace Klaus {
       if (!text) { say("Type a message first."); return; }
       composer.value = "";
       exitInput();
-      submitTurn(cur(), null, text);
+      submitTurn(cur(), null, text, true);
     }
 
     // ── Menu, session list, confirm ─────────────────────────────────────────
@@ -784,7 +804,7 @@ namespace Klaus {
     function handleBack(): boolean {
       var sess = cur();
       if (isBusyState(sess.serverState)) { cancelSession(sess); say("Cancelled."); return true; }
-      if (sess.uploadPending) { dropClip(sess); persist(); say("Unsent clip discarded."); return true; }
+      if (sess.uploadPending) { dropClip(sess); clearOutbox(sess); persist(); say("Unsent clip discarded."); return true; }
       if (selected >= 0) { focusMessage(-1, true); return true; }
       return false;
     }
@@ -860,13 +880,34 @@ namespace Klaus {
     });
 
     // ── Init ────────────────────────────────────────────────────────────────
+    // A turn in flight when the app closed is resent with its persisted request id; one
+    // whose session was never created goes back to the queue.
     sessions.forEach(function (sess: LocalSession): void {
+      if (sess.outboxId && isBusyState(sess.serverState) && sess.serverState !== "cancelling" &&
+          sess.lastRequestId === sess.outboxId) {
+        if (!sess.serverId) {
+          sess.serverState = "idle";
+          if (sess.outboxAudio) sess.uploadPending = true;
+          else sess.textPending = !!sess.lastText;
+        } else {
+          resend[sess.id] = { requestId: sess.outboxId, blob: null, text: sess.outboxAudio ? null : sess.lastText, audio: sess.outboxAudio };
+          sess.serverState = "uncertain";
+        }
+      }
       if (isBusyState(sess.serverState)) {
         if (connected && sess.serverId) startPolling(sess);
         else sess.serverState = "uncertain";
       }
-      if (sess.uploadPending) {
-        clipGet(sess.id, function (blob: Blob | null): void { if (blob && !sess.uploadBlob) sess.uploadBlob = blob; });
+      if (sess.uploadPending || resend[sess.id]) {
+        clipGet(sess.id, function (blob: Blob | null): void {
+          if (!blob) return;
+          if (sess.uploadPending && !sess.uploadBlob) sess.uploadBlob = blob;
+          var again = resend[sess.id];
+          if (again && again.audio && !again.blob) {
+            again.blob = blob;
+            if (connState === "CONNECTED") retryAllQueued();
+          }
+        });
       }
     });
     persist();
