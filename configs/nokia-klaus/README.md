@@ -81,6 +81,7 @@ Softkey labels per state:
 | Typing | Clear | Send | Voice |
 | Rename | Clear | Save | Cancel |
 | Menu / chat list | Close | Select / Open | |
+| Keys screen | Close | OK | |
 
 On the chat list, 1/2/3 are speed dial (see Chat list).
 | Archive confirm | Cancel | Archive | |
@@ -94,7 +95,7 @@ Idle keys:
 |-----|--------|
 | Centre (OK) | Start recording |
 | SoftLeft | Focus the composer (typing) |
-| SoftRight | Menu: New chat, Rename, Archive (confirm), Retry last, Read aloud on/off |
+| SoftRight | Menu: 1 New chat, 2 Rename, 3 Archive (confirm), 4 Retry last, 5 Read aloud on/off, 6 Keys (a one-screen key list); a digit picks the item at once |
 | ↑ / ↓ | Focus previous / next message (full-row highlight). ↓ past the newest returns to live |
 | ← / →, 4 / 6 | Previous / next open chat (wraps, skips archived) |
 | 1 / 9 | Oldest / newest message |
@@ -149,6 +150,7 @@ Notes queue in order while the service is unreachable (for example away from hom
 
 ## Behaviour
 
+- **Empty chat**: the hint lists the main keys (`OK talk · Left type`, `0 quick reply · # chats`) and changes to `Listening… Call sends · OK pauses` while the first clip records.
 - **Ready to record**: the app reopens the last chat and opens the microphone 300 ms after it becomes visible (and again after each recording), so Centre starts the recorder in about 3 ms instead of 60-125 ms. The stream is released whenever the app is hidden or closed; KaiOS shows its microphone indicator while the app is in front.
 - **Sessions**: up to 128 chats (open + archived). Archived chats are hidden from navigation but keep polling and speaking. Each chat stores its last activity time (`updatedAt`: sending, a new message, opening it) and whether it was renamed by hand (`named`); older stores are migrated on load.
 - **Pending turns**: a thinking bubble shows `sending`/`thinking`/`cancelling` with an elapsed timer. Polling backs off from 1.5 s to 8 s and stops after `pollTimeoutMs` (default 180000) with "no reply yet"; Menu › Retry last resumes polling.
@@ -188,9 +190,10 @@ node tests/nokia-voice-transcript.cjs # clip placeholders, transcript first
 node tests/nokia-quick-replies.cjs # 0 + digit quick replies
 node tests/nokia-read-aloud.cjs  # 5 read/stop, reading banner and outline
 node tests/nokia-speed-dial.cjs  # chat list 1 Notes, 2 Klaus, 3 Last
+node tests/nokia-polish.cjs      # menu digits, Keys screen, empty hint, version
 ```
 
 ## Notes
 
 - Requires a privileged install (`type: "privileged"`, `permissions.systemXHR`); see `manifest.webapp`.
-- Verified on a Nokia 6300 4G (KaiOS 2.5.4): Centre start/pause/resume (native `MediaRecorder.pause()`), Call send, SoftRight send while paused, Backspace discard with confirm, typed send, and Wi-Fi off/on queue and resend. Clip upload after a restart without signal is verified on the handset (0.3.3), as are Notes voice/typed/offline-queued notes (0.3.4), the pending first turn of a new chat and a paused-then-resumed clip (0.4.0), and the 0.5.0 state banner, softkey labels, press feedback, focus highlight and archive confirm; the voice list remains unverified.
+- Verified on a Nokia 6300 4G (KaiOS 2.5.4): Centre start/pause/resume (native `MediaRecorder.pause()`), Call send, SoftRight send while paused, Backspace discard with confirm, typed send, and Wi-Fi off/on queue and resend. Clip upload after a restart without signal is verified on the handset (0.3.3), as are Notes voice/typed/offline-queued notes (0.3.4), the pending first turn of a new chat and a paused-then-resumed clip (0.4.0), and the 0.5.0 state banner, softkey labels, press feedback, focus highlight and archive confirm; the voice list remains unverified. The 0.6.0 chat list, clip placeholders, quick replies, read-aloud stop, speed dial, numbered menu and Keys screen are unit tested and rendered at 240x320 in headless Chromium, not yet verified on the handset.

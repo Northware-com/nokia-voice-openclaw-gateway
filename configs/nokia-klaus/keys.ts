@@ -1,6 +1,6 @@
 // Pure key-map and presentation logic. No DOM access, so tests can call it directly.
 namespace Klaus {
-  export type Mode = "idle" | "recording" | "paused" | "typing" | "rename" | "menu" | "sessions" | "confirm" | "quick";
+  export type Mode = "idle" | "recording" | "paused" | "typing" | "rename" | "menu" | "sessions" | "confirm" | "quick" | "help";
 
   export type Action =
     "none" | "type" | "talk" | "menu" | "back" | "cancel" | "send" | "pause" | "resume" | "discard" | "clear" | "voice" |
@@ -50,7 +50,11 @@ namespace Klaus {
         if (key === "Backspace") return inputEmpty ? "exitInput" : "none";
         return "none";
       case "menu":
+        if (/^[1-9]$/.test(key)) return "pick";
         return LIST_KEYS[key] || "none";
+      case "help":
+        if (key === "Enter" || key === " " || key === "SoftLeft" || key === "Backspace" || key === "Escape") return "close";
+        return "none";
       case "sessions":
         if (key === "1" || key === "2" || key === "3") return "dial";
         return LIST_KEYS[key] || "none";
@@ -78,6 +82,7 @@ namespace Klaus {
       case "sessions": return ["Close", "Open", ""];
       case "confirm": return ["Cancel", "Archive", ""];
       case "quick": return ["Close", "Send", ""];
+      case "help": return ["Close", "OK", ""];
       default: return ["Type", "Talk", notes ? "Chat" : "Menu"];
     }
   }
@@ -197,6 +202,31 @@ namespace Klaus {
     // Busy chats say so in the preview; a leading "…" would read as a clipped title.
     return { kind: kind, title: sessionListLabel(title, false, failed, queued), time: relTime(updatedAt, now), preview: preview };
   }
+
+  // Empty-chat hint per state: what to do next, including while the first clip records.
+  export function emptyHint(mode: Mode, notes: boolean): string {
+    if (mode === "recording") return notes ? "Listening…\nCall saves the note" : "Listening…\nCall sends · OK pauses";
+    if (mode === "paused") return "Paused\nOK resumes · Call sends";
+    if (notes) return "No notes yet. OK to talk, left key to type. They go to Plato's inbox.";
+    return "No messages yet.\nOK talk · Left type\n0 quick reply · # chats";
+  }
+
+  // Menu › Keys: one line per key, short enough for 240 px.
+  // Plain words rather than arrows: only ↑ is verified in the handset font.
+  export var KEY_HELP = [
+    "OK  talk · again pauses",
+    "Call  send",
+    "Soft keys: type / menu",
+    "Up/Down  messages",
+    "4/6  previous/next chat",
+    "1/9 ends · 2/8 page",
+    "5  read aloud / stop",
+    "0  quick replies",
+    "#  chats · 1 2 3 dial",
+    "3  new · 7  archive",
+    "*  notes for Plato",
+    "Back  cancel / discard"
+  ];
 
   // Speed dial on the chat list: 1 Notes for Plato, 2 a new Klaus chat (recording at once),
   // 3 the previous chat. Labels are short enough for three chips across 240 px.

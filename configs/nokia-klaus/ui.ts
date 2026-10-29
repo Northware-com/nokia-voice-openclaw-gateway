@@ -123,7 +123,7 @@ namespace Klaus {
     if (!messages.length) {
       var empty = document.createElement("p");
       empty.className = "empty";
-      empty.textContent = emptyText || "No messages yet. Press OK to talk.";
+      empty.textContent = emptyText || emptyHint("idle", false);
       listEl.appendChild(empty);
       emptyEl = empty;
       show(empty, !pendingShown); // the first turn is already on its way
@@ -137,6 +137,11 @@ namespace Klaus {
       renderedTexts.push(messages[j].role + ":" + messages[j].text);
     }
     if (stick) uiScrollBottom();
+  }
+
+  // Change the empty-chat hint in place (e.g. while the first clip records).
+  export function uiEmptyHint(text: string): void {
+    if (emptyEl) emptyEl.textContent = text;
   }
 
   // Rows in index.html wrap a .bubble child; fall back to the row itself.
@@ -200,7 +205,7 @@ namespace Klaus {
     while (overlayList.firstChild) overlayList.removeChild(overlayList.firstChild);
     if (note) {
       var p = document.createElement("p");
-      p.className = "note";
+      p.className = /\n/.test(note) ? "note keys" : "note";
       p.textContent = note;
       overlayList.appendChild(p);
     }

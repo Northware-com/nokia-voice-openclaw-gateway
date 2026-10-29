@@ -91,6 +91,7 @@ namespace Klaus {
       mode = next;
       uiBarRecording(next === "recording" || next === "paused", notesMode, next === "paused");
       uiComposerHint(next, notesMode);
+      uiEmptyHint(emptyHint(next, notesMode));
       refreshSoftkeys();
     }
 
@@ -174,7 +175,7 @@ namespace Klaus {
       refreshTopbar();
       player.pause(); player.removeAttribute("src");
       if (sessionMedia[sess.id]) player.src = sessionMedia[sess.id];
-      uiMessages(sess.id, sess.messages, notesMode ? "No notes yet. OK to talk, left key to type. They go to Plato's inbox." : undefined);
+      uiMessages(sess.id, sess.messages, emptyHint(mode, notesMode));
       selected = -1;
       uiSelect(-1, true);
       refreshThinking();
@@ -838,10 +839,15 @@ namespace Klaus {
 
     // ── Menu, session list, confirm ─────────────────────────────────────────
     function menuItems(): string[] {
-      return ["New chat", "Rename", "Archive", "Retry last", "Read aloud: " + (autoRead ? "on" : "off")];
+      return ["New chat", "Rename", "Archive", "Retry last", "Read aloud: " + (autoRead ? "on" : "off"), "Keys"];
     }
 
-    function openMenu(): void { listIndex = 0; setMode("menu"); uiOverlay("Menu", menuItems(), listIndex); }
+    function openMenu(): void { listIndex = 0; setMode("menu"); uiOverlay("Menu", menuItems(), listIndex, undefined, true); }
+
+    function openHelp(): void {
+      setMode("help");
+      uiOverlay("Keys", [], -1, KEY_HELP.join("\n"));
+    }
 
     function openSessionList(): void {
       listTargets = [];
@@ -891,7 +897,7 @@ namespace Klaus {
       var count = mode === "menu" ? menuItems().length : mode === "quick" ? quickItems.length : listTargets.length;
       if (!count) return;
       listIndex = (listIndex + delta + count) % count;
-      if (mode === "menu") uiOverlay("Menu", menuItems(), listIndex);
+      if (mode === "menu") uiOverlay("Menu", menuItems(), listIndex, undefined, true);
       else if (mode === "quick") renderQuick();
       else renderSessionList();
     }
@@ -923,6 +929,7 @@ namespace Klaus {
       else if (choice === 2) openConfirm();
       else if (choice === 3) retryLast();
       else if (choice === 4) toggleAutoRead();
+      else if (choice === 5) openHelp();
     }
 
     // ── Reading ─────────────────────────────────────────────────────────────
@@ -1025,7 +1032,10 @@ namespace Klaus {
         case "archive": openConfirm(); break;
         case "notes": toggleNotes(); break;
         case "quick": openQuick(); break;
-        case "pick": sendQuick(Number(key) - 1); break;
+        case "pick":
+          if (mode === "quick") sendQuick(Number(key) - 1);
+          else if (Number(key) <= menuItems().length) { listIndex = Number(key) - 1; selectItem(); }
+          break;
         case "dial": speedDial(key); break;
       }
     }

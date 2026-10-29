@@ -335,7 +335,7 @@ function pausable(rec) {
   last(h, isCreate).req.onerror();
   assert.match(h.status(), /Could not reach Klaus/);
   assert.equal(h.thinking(), '', 'no thinking bubble after failed send');
-  h.key('SoftRight'); h.key('ArrowUp'); h.key('ArrowUp'); h.key('Enter'); // Retry last (index 3)
+  h.key('SoftRight'); h.key('4'); // Retry last (item 4)
   const create = last(h, isCreate);
   respond(h, create, 201, {id: 'srv-retry'});
   assert.deepEqual(JSON.parse(last(h, isTurn).body), {text: 'retry me'}, 'Retry resends the last text');
@@ -358,7 +358,7 @@ function pausable(rec) {
   assert.equal(h.activePolls().length, 0, 'polling stops after the configured timeout');
   assert.match(h.thinking(), /no reply yet/);
   const polls = h.xhrRequests.filter(isPoll('srv-slow')).length;
-  h.key('SoftRight'); h.key('ArrowUp'); h.key('ArrowUp'); h.key('Enter'); // Retry last
+  h.key('SoftRight'); h.key('4'); // Retry last
   assert.equal(h.activePolls().length, 1, 'Retry last resumes polling');
   firePoll(h);
   assert.equal(h.xhrRequests.filter(isPoll('srv-slow')).length, polls + 1);

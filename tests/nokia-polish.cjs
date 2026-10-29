@@ -1,0 +1,72 @@
+// nokia-polish.cjs — numbered menu, Keys help screen, state-aware empty-chat hint, 0.6.0 manifest.
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const {harness} = require('./nokia-audio.cjs');
+
+const empty = h => h.nodes.transcript.children.find(c => c.className.includes('empty'));
+const menuRows = h => h.nodes['overlay-list'].children.filter(c => /\bitem\b/.test(c.className));
+
+// ── Pure helpers ───────────────────────────────────────────────────────────
+{
+  const K = harness().context.Klaus;
+  assert.equal(K.emptyHint('idle', false), 'No messages yet.\nOK talk · Left type\n0 quick reply · # chats');
+  assert.equal(K.emptyHint('recording', false), 'Listening…\nCall sends · OK pauses');
+  assert.equal(K.emptyHint('recording', true), 'Listening…\nCall saves the note');
+  assert.equal(K.emptyHint('paused', false), 'Paused\nOK resumes · Call sends');
+  assert.match(K.emptyHint('idle', true), /Plato's inbox/);
+  assert.equal(K.mapKey('help', 'Enter', true), 'close');
+  assert.equal(K.mapKey('help', 'Backspace', true), 'close');
+  assert.equal(K.mapKey('help', '5', true), 'none', 'the help screen ignores other keys');
+  assert.deepEqual(Array.from(K.softkeysFor('help', '')), ['Close', 'OK', '']);
+  for (const line of K.KEY_HELP) assert.ok(line.length <= 24, `help line fits 240 px: ${line}`);
+  assert.equal(K.KEY_HELP.length, 12, 'every idle key family is listed');
+}
+
+// ── The empty-chat hint follows the first recording ────────────────────────
+{
+  const h = harness();
+  assert.equal(empty(h).textContent, 'No messages yet.\nOK talk · Left type\n0 quick reply · # chats');
+  h.key('Enter');
+  assert.equal(empty(h).textContent, 'Listening…\nCall sends · OK pauses', 'no "Press OK to talk" while already recording');
+  h.key('SoftLeft');
+  assert.match(empty(h).textContent, /^No messages yet/, 'the hint returns after discarding');
+}
+
+// ── Numbered menu: digit shortcuts and the Keys screen ─────────────────────
+{
+  const h = harness();
+  h.key('SoftRight');
+  const rows = menuRows(h);
+  assert.deepEqual(rows.map(r => r.textContent), ['1New chat', '2Rename', '3Archive', '4Retry last', '5Read aloud: on', '6Keys']);
+  assert.ok(rows.every(r => /\bnum\b/.test(r.className)), 'menu rows carry digit badges');
+  h.key('8');
+  assert.ok(!h.nodes.overlay.hidden, 'a digit past the last item does nothing');
+  h.key('2');
+  assert.deepEqual(h.softkeys(), ['Clear', 'Save', 'Cancel'], '2 opens Rename');
+  h.key('Escape');
+  h.key('SoftRight'); h.key('6');
+  assert.equal(h.nodes['overlay-title'].textContent, 'Keys');
+  assert.deepEqual(h.softkeys(), ['Close', 'OK', '']);
+  const note = h.nodes['overlay-list'].children[0];
+  assert.equal(note.className, 'note keys');
+  assert.match(note.textContent, /0  quick replies/);
+  h.key('5');
+  assert.ok(!h.nodes.overlay.hidden, '5 does not leak through to read aloud');
+  h.key('Enter');
+  assert.ok(h.nodes.overlay.hidden);
+  assert.deepEqual(h.softkeys(), ['Type', 'Talk', 'Menu']);
+  h.key('SoftRight'); h.key('6'); h.key('Backspace');
+  assert.ok(h.nodes.overlay.hidden, 'Back closes the Keys screen');
+  h.key('SoftRight'); h.key('1');
+  assert.equal(h.nodes['session-index'].textContent, '2/2', '1 creates a chat');
+}
+
+// ── Manifest version ───────────────────────────────────────────────────────
+{
+  const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../configs/nokia-klaus/manifest.webapp'), 'utf8'));
+  assert.equal(manifest.version, '0.6.0');
+}
+
+console.log('Nokia polish (menu digits, Keys screen, empty hint, version) checks passed');

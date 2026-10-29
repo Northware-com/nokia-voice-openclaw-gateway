@@ -33,7 +33,7 @@ body { display: flex; flex-direction: column; position: relative; }
 .voice .bubble { background: #0d2020; color: #b6f2da; border: 2px dashed #1bfc9e; font-style: italic; }
 #thinking .bubble { color: #b6f2da; font-style: italic; }
 #echo .bubble { color: #051111; opacity: 0.75; }
-.empty { margin: 24px 12px 0; color: #a9d6c6; font-size: 15px; line-height: 1.35; text-align: center; }
+.empty { margin: 24px 12px 0; color: #a9d6c6; font-size: 15px; line-height: 1.5; text-align: center; white-space: pre-line; }
 
 /* One-line notice, coloured by kind */
 /* Wraps to two lines rather than clipping a notice. */
@@ -71,6 +71,7 @@ body { display: flex; flex-direction: column; position: relative; }
 .item { padding: 8px 8px; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid #0d2020; }
 .item.sel { background: #1bfc9e; color: #051111; font-weight: bold; }
 .note { margin: 10px 8px; font-size: 16px; line-height: 1.35; color: #e7fff5; }
+.note.keys { margin: 4px 8px; font-size: 15px; line-height: 19px; white-space: pre-line; }
 
 /* Chat list: title + time, then a one-line preview; marker colour follows the chat state */
 .item.chat { padding: 4px 8px 5px; white-space: normal; }

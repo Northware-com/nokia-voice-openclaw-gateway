@@ -17,7 +17,7 @@ const index = h => h.nodes['session-index'].textContent;
   for (const d of '4567890*') assert.equal(K.mapKey('sessions', d, true), 'none', `chat list ${d} is unused`);
   assert.equal(K.mapKey('sessions', 'ArrowUp', true), 'up');
   assert.equal(K.mapKey('sessions', 'Enter', true), 'select');
-  assert.equal(K.mapKey('menu', '1', true), 'none', 'the menu has no speed dial');
+  assert.equal(K.mapKey('menu', '1', true), 'pick', 'menu digits pick the numbered item, not speed dial');
   assert.deepEqual(Array.from(K.SPEED_DIAL), ['Notes', 'Klaus', 'Last']);
 }
 
