@@ -9,6 +9,8 @@ namespace Klaus {
   var renderedFor = "";
   var renderedTexts: string[] = [];
   var selectedRow = -1;
+  var emptyEl: HTMLElement | null = null; // "No messages yet" placeholder
+  var pendingShown = false;               // a thinking bubble is visible
 
   function byId(id: string): HTMLElement { return document.getElementById(id) as HTMLElement; }
 
@@ -77,7 +79,7 @@ namespace Klaus {
 
   function clearList(): void {
     while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
-    rendered = []; renderedTexts = []; selectedRow = -1;
+    rendered = []; renderedTexts = []; selectedRow = -1; emptyEl = null;
   }
 
   // Render a session's messages. Appends only new rows when the already-rendered prefix
@@ -96,9 +98,11 @@ namespace Klaus {
       empty.className = "empty";
       empty.textContent = emptyText || "No messages yet. Press OK to talk.";
       listEl.appendChild(empty);
+      emptyEl = empty;
+      show(empty, !pendingShown); // the first turn is already on its way
       return;
     }
-    if (!rendered.length && listEl.firstChild) listEl.removeChild(listEl.firstChild);
+    if (emptyEl) { listEl.removeChild(emptyEl); emptyEl = null; }
     for (var j = rendered.length; j < messages.length; j++) {
       var row = makeRow(messages[j]);
       listEl.appendChild(row);
@@ -121,6 +125,8 @@ namespace Klaus {
     setBubble(thinkingEl, label || "");
     var wasVisible = !/\bhidden\b/.test(thinkingEl.className || "");
     show(thinkingEl, !!label);
+    pendingShown = !!label;
+    if (emptyEl) show(emptyEl, !label);
     if (label && !wasVisible && selectedRow < 0) uiScrollBottom();
   }
 

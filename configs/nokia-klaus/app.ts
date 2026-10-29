@@ -160,7 +160,7 @@ namespace Klaus {
       refreshThinking();
       refreshSoftkeys();
       if (sess.serverState === "error") say("Last request failed. Menu › Retry last.");
-      else if (sess.uploadPending) say("Voice clip not sent yet. Menu › Retry last.");
+      else if (sess.uploadPending) say(connected ? "Voice clip queued; sends when back online." : "Voice clip not sent yet. Menu › Retry last.");
     }
 
     // ── Notes ───────────────────────────────────────────────────────────────

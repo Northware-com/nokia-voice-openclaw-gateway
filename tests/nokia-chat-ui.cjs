@@ -363,4 +363,26 @@ function pausable(rec) {
   assert.equal(h.key('Backspace'), false, 'Back with nothing pending is left to KaiOS (exit)');
 }
 
+// ── The empty-chat placeholder hides while the first turn is pending ───────
+{
+  const h = harness(new Map(), BRIDGE);
+  const placeholder = () => h.nodes.transcript.children.find(c => c.className.includes('empty'));
+  assert.equal(placeholder().hidden, false, 'an empty idle chat shows the hint');
+  record(h);
+  assert.match(h.thinking(), /sending/);
+  assert.equal(placeholder().hidden, true, 'no "No messages yet" next to a pending turn');
+  respond(h, last(h, isCreate), 201, {id: 'srv-empty'});
+  respond(h, last(h, isTurn), 202, {runId: 'run-empty', state: 'pending'});
+  firePoll(h);
+  respond(h, last(h, isPoll('srv-empty')), 200, {state: 'pending', messages: []});
+  assert.equal(placeholder().hidden, true, 'still hidden while Klaus thinks');
+  h.key('Backspace');
+  firePoll(h);
+  respond(h, last(h, isPoll('srv-empty')), 200, {state: 'cancelled', messages: []});
+  assert.equal(h.thinking(), '');
+  assert.equal(placeholder().hidden, false, 'the hint returns once nothing is pending');
+  h.key('3');
+  assert.equal(placeholder().hidden, false, 'a new chat shows the hint');
+}
+
 console.log('Nokia chat UI, softkey, typing, menu and key-map checks passed');
