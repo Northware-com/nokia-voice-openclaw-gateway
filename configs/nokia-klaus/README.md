@@ -160,6 +160,8 @@ Quick replies wait while Klaus is still replying, queue like typed text when off
 
 `*` opens the **Notes → Plato** screen (purple bar) when the package was built with `NOKIA_NOTES_URL`. OK records a voice note and Call sends it; the left key types a note. Notes go to the quick-note inbox service ([`configs/nokia-notes`](../nokia-notes/README.md)) with their own token, never to Klaus; each note becomes a dated Markdown file and the phone shows `Saved: <one-line summary>`.
 
+Start a note with a keyword to route it (see [Voice commands](../nokia-notes/README.md#voice-commands)): `Task …`/`Opgave …` saves a tagged task, `Idea …`/`Idé …` an idea, and `Remind me at 3 pm to …`/`Husk … kl. 15` a reminder with its time. A chip at the top of the screen confirms the result for 4 s or until the next key (`✓ Task saved`, `✓ Reminder 15:00`; blue for tasks, purple for ideas, amber for reminders, green for notes) and the log reads `Task saved: Buy milk`.
+
 Notes queue in order while the service is unreachable (for example away from home Wi-Fi); the queue (`klaus.notes.v1`) and clips (IndexedDB `note:<id>`) survive restarts and are sent with their original request id on launch, on reconnect, when opening Notes and every 30 s after a failure. Chat navigation keys are paused on the Notes screen.
 
 ## Behaviour

@@ -5,6 +5,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as http from 'node:http';
 import * as path from 'node:path';
+import { classify, confirmLabel, type Command, type NoteKind } from './commands';
 
 export const AUDIO_LIMIT = 5 * 1024 * 1024;
 export const TEXT_LIMIT = 4000;
@@ -19,7 +20,8 @@ export type NotesConfig = {
   transcribeTimeoutMs?: number;
 };
 
-export type SavedNote = { file: string; summary: string };
+// kind/label/due: what the leading keyword made of the note ("Task saved", "Reminder 15:00").
+export type SavedNote = { file: string; summary: string; kind?: NoteKind; label?: string; due?: string };
 
 type Transcript = { text: string; language?: string; duration?: number };
 
@@ -34,7 +36,7 @@ export function summarize(text: string): string {
   return sentence.length > 80 ? sentence.slice(0, 79).trimEnd() + '…' : sentence;
 }
 
-function stamp(date: Date): { day: string; time: string; iso: string } {
+export function stamp(date: Date): { day: string; time: string; iso: string } {
   const pad = (n: number): string => String(n).padStart(2, '0');
   const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   const time = `${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
@@ -45,17 +47,26 @@ function stamp(date: Date): { day: string; time: string; iso: string } {
 
 function yamlString(value: string): string { return JSON.stringify(value); }
 
+const FILE_PREFIX: Record<NoteKind, string> = { note: 'Nokia-Note', task: 'Nokia-Task', idea: 'Nokia-Idea', reminder: 'Nokia-Reminder' };
+
+// Plain notes keep the inbox format; tasks, ideas and reminders get their type, an open
+// status and tags so vault queries can find them, and reminders their due time.
 export function renderNote(kind: 'voice' | 'text', body: string, summary: string, requestId: string,
-  date: Date, transcript?: Transcript): string {
+  date: Date, transcript?: Transcript, command?: Command): string {
   const when = stamp(date);
+  const type = command ? command.kind : 'note';
   const lines = [
     '---',
-    'type: note',
-    'status: inbox',
+    `type: ${type}`,
+    `status: ${type === 'task' || type === 'reminder' ? 'open' : 'inbox'}`,
     `created: ${when.iso}`,
+  ];
+  if (command?.kind === 'reminder' && command.due) lines.push(`due: ${stamp(command.due).iso}`);
+  if (type !== 'note') lines.push(`tags: [${type}, nokia]`);
+  lines.push(
     `source: ${kind === 'voice' ? 'Nokia voice note' : 'Nokia typed note'}`,
     `request_id: ${requestId}`,
-  ];
+  );
   if (transcript?.language) lines.push(`language: ${transcript.language}`);
   if (typeof transcript?.duration === 'number') lines.push(`duration_s: ${Math.round(transcript.duration * 10) / 10}`);
   if (kind === 'voice') lines.push('transcription: WhisperX (Freyr), unreviewed');
@@ -119,15 +130,31 @@ export function createNotesServer(cfg: NotesConfig, now: () => Date = () => new 
     fs.renameSync(tmp, cfg.stateFile);
   }
 
-  function writeNote(markdown: string, date: Date): string {
+  function writeNote(markdown: string, date: Date, kind: NoteKind = 'note'): string {
     const when = stamp(date);
-    let name = `Nokia-Note-${when.day}-${when.time}.md`;
-    for (let n = 2; fs.existsSync(path.join(cfg.inboxDir, name)); n++) name = `Nokia-Note-${when.day}-${when.time}-${n}.md`;
+    const prefix = FILE_PREFIX[kind];
+    let name = `${prefix}-${when.day}-${when.time}.md`;
+    for (let n = 2; fs.existsSync(path.join(cfg.inboxDir, name)); n++) name = `${prefix}-${when.day}-${when.time}-${n}.md`;
     const target = path.join(cfg.inboxDir, name);
     const tmp = path.join(cfg.inboxDir, `.${name}.tmp`);
     fs.writeFileSync(tmp, markdown, { mode: 0o644 });
     fs.renameSync(tmp, target);
     return name;
+  }
+
+  // A leading keyword routes the note: tasks, ideas and reminders get their own file type.
+  // The keyword itself is dropped; the original wording stays in the body below the title.
+  function store(source: 'voice' | 'text', text: string, requestId: string, date: Date, transcript?: Transcript): SavedNote {
+    const command = classify(text, date);
+    if (command.kind === 'note' || !command.body) {
+      const summary = summarize(text);
+      return { file: writeNote(renderNote(source, text, summary, requestId, date, transcript), date), summary, kind: 'note', label: 'Note saved' };
+    }
+    const summary = summarize(command.body);
+    const file = writeNote(renderNote(source, text, summary, requestId, date, transcript, command), date, command.kind);
+    const note: SavedNote = { file, summary, kind: command.kind, label: confirmLabel(command, date) };
+    if (command.due) note.due = stamp(command.due).iso;
+    return note;
   }
 
   async function save(requestId: string, contentType: string, bytes: Buffer): Promise<SavedNote> {
@@ -137,14 +164,12 @@ export function createNotesServer(cfg: NotesConfig, now: () => Date = () => new 
       if (bytes.length < 4 || bytes.subarray(0, 4).toString() !== 'OggS') throw new HttpError(400, 'invalid_ogg');
       const transcript = await transcribe(cfg, bytes);
       if (!transcript.text) throw new HttpError(422, 'no_speech');
-      const summary = summarize(transcript.text);
-      note = { file: writeNote(renderNote('voice', transcript.text, summary, requestId, date, transcript), date), summary };
+      note = store('voice', transcript.text, requestId, date, transcript);
     } else {
       let text: unknown;
       try { text = JSON.parse(bytes.toString('utf8')).text; } catch { throw new HttpError(400, 'invalid_json'); }
       if (typeof text !== 'string' || !text.trim() || text.length > TEXT_LIMIT) throw new HttpError(400, 'invalid_text');
-      const summary = summarize(text);
-      note = { file: writeNote(renderNote('text', text, summary, requestId, date), date), summary };
+      note = store('text', text, requestId, date);
     }
     remember(requestId, note);
     return note;

@@ -79,7 +79,10 @@ namespace Klaus {
     notesSess.id = "notes";
     var notes: NotesBox | null = cfg.notesUrl && cfg.notesToken
       ? createNotesBox(cfg.notesUrl, cfg.notesToken, notesChanged, function (text: string): void { if (notesMode) say(text); },
-          function (saved: boolean): void { buzz(saved ? "arrived" : "error"); })
+          function (saved: boolean, label: string, kind: string): void {
+            buzz(saved ? "arrived" : "error");
+            if (saved && notesMode) uiChip("\u2713 " + label, kind);
+          })
       : null;
     if (notes) notesSess.messages = notes.log;
 
@@ -1090,6 +1093,7 @@ namespace Klaus {
       var action = mapKey(mode, key, !composer.value, canResume);
       if (action === "none") return;
       uiKeyDown(softkeyIndex(key));
+      uiChipHide();
       if (action !== "discard" && discardArmed) { discardArmed = false; refreshBanner(); }
       if (action === "back") {
         say("");

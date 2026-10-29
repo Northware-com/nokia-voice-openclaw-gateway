@@ -35,6 +35,12 @@ body { display: flex; flex-direction: column; position: relative; }
 #echo .bubble { color: #051111; opacity: 0.75; }
 .empty { margin: 24px 12px 0; color: #a9d6c6; font-size: 15px; line-height: 1.5; text-align: center; white-space: pre-line; }
 
+/* Confirmation chip after a note is saved: floats over the top of the chat, colour per kind */
+#chip { position: absolute; top: 29px; left: 3px; right: 3px; margin: 0; padding: 3px 4px; text-align: center; font: bold 14px sans-serif; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 12px; border: 1px solid #051111; background: #1bfc9e; color: #051111; }
+#chip.task { background: #6ec3ff; }
+#chip.idea { background: #d4bcff; }
+#chip.reminder { background: #ffc94d; }
+
 /* One-line notice, coloured by kind */
 /* Wraps to two lines rather than clipping a notice. */
 #status { flex: 0 0 auto; margin: 0; padding: 2px 5px; max-height: 40px; font-size: 14px; line-height: 18px; color: #d8efe7; background: #0d2020; border-top: 1px solid #075555; white-space: normal; word-wrap: break-word; overflow: hidden; }

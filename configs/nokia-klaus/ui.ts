@@ -2,6 +2,7 @@
 namespace Klaus {
   var bar: HTMLElement, indexEl: HTMLElement, titleEl: HTMLElement, connEl: HTMLElement;
   var chatEl: HTMLElement, listEl: HTMLElement, thinkingEl: HTMLElement, echoEl: HTMLElement;
+  var chipEl: HTMLElement, chipTimer: any = null;
   var statusEl: HTMLElement, bannerEl: HTMLElement, skEls: HTMLElement[], overlayEl: HTMLElement, overlayTitle: HTMLElement, overlayList: HTMLElement;
   export var composer: HTMLInputElement;
 
@@ -25,7 +26,8 @@ namespace Klaus {
     statusEl = byId("status"); bannerEl = byId("banner"); composer = byId("composer") as HTMLInputElement;
     skEls = [byId("sk-left"), byId("sk-center"), byId("sk-right")];
     overlayEl = byId("overlay"); overlayTitle = byId("overlay-title"); overlayList = byId("overlay-list");
-    show(thinkingEl, false); show(echoEl, false); show(statusEl, false); show(bannerEl, false); show(overlayEl, false);
+    chipEl = byId("chip");
+    show(chipEl, false); show(thinkingEl, false); show(echoEl, false); show(statusEl, false); show(bannerEl, false); show(overlayEl, false);
   }
 
   export function uiTopbar(index: number, count: number, title: string): void {
@@ -69,6 +71,21 @@ namespace Klaus {
     statusEl.textContent = text;
     statusEl.className = noticeKind(text);
     show(statusEl, !!text);
+  }
+
+  // Confirmation chip at the top of the chat ("✓ Task saved", "✓ Reminder 15:00"), coloured
+  // by kind; it fades after 4 s or on the next key press.
+  export function uiChip(text: string, kind: string): void {
+    chipEl.textContent = text;
+    chipEl.className = kind;
+    show(chipEl, !!text);
+    if (chipTimer) clearTimeout(chipTimer);
+    chipTimer = text ? setTimeout(function (): void { chipTimer = null; show(chipEl, false); }, 4000) : null;
+  }
+
+  export function uiChipHide(): void {
+    if (chipTimer) { clearTimeout(chipTimer); chipTimer = null; }
+    show(chipEl, false);
   }
 
   // State strip in place of the composer; the composer returns when there is no banner.

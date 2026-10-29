@@ -18,7 +18,8 @@ namespace Klaus {
   function noteClipKey(id: string): string { return "note:" + id; }
 
   export function createNotesBox(url: string, token: string,
-    changed: () => void, notice: (text: string) => void, settled?: (saved: boolean) => void): NotesBox {
+    changed: () => void, notice: (text: string) => void,
+    settled?: (saved: boolean, label: string, kind: string) => void): NotesBox {
     var cfg: RuntimeConfig = { bridgeUrl: url, bridgeToken: token };
     var box: NotesBox = { log: [], queue: [], sending: false, add: add, flush: flush };
     var retryTimer: any = null;
@@ -51,14 +52,16 @@ namespace Klaus {
     }
 
     // Settle the head of the queue: log the outcome and move on to the next note.
-    function finish(note: QueuedNote, saved: string | null, problem: string | null): void {
+    // label/kind: the service's reading of a leading keyword ("Task saved", "Reminder 15:00").
+    function finish(note: QueuedNote, saved: string | null, problem: string | null, label?: string, kind?: string): void {
       box.queue.shift();
       if (note.audio) { delete held[note.id]; clipDelete(noteClipKey(note.id)); }
       box.log.push({ role: "user", text: note.audio ? "Voice note" : (note.text || "") });
-      box.log.push({ role: "assistant", text: saved !== null ? "Saved: " + saved : problem || "Not saved." });
+      var routed = !!label && !!kind && kind !== "note";
+      box.log.push({ role: "assistant", text: saved !== null ? (routed ? label : "Saved") + ": " + saved : problem || "Not saved." });
       save();
       changed();
-      if (settled) settled(saved !== null);
+      if (settled) settled(saved !== null, label || "Note saved", kind || "note");
       flush();
     }
 
@@ -77,10 +80,15 @@ namespace Klaus {
         onSuccess: function (status: number, text: string): void {
           box.sending = false;
           if (status === 200 || status === 201) {
-            var summary = "";
-            try { summary = String(JSON.parse(text).summary || ""); } catch (_e) { /* saved anyway */ }
+            var summary = "", label = "", kind = "";
+            try {
+              var r = JSON.parse(text);
+              summary = String(r.summary || "");
+              if (typeof r.label === "string") label = r.label.slice(0, 40);
+              if (/^(note|task|idea|reminder)$/.test(r.kind)) kind = r.kind;
+            } catch (_e) { /* saved anyway */ }
             notice("");
-            finish(note, summary || "note", null);
+            finish(note, summary || "note", null, label, kind);
           } else if (status === 422) finish(note, null, "No speech heard; not saved.");
           else if (status === 400 || status === 413 || status === 415) finish(note, null, "Rejected by Plato (" + status + ").");
           else if (status === 401 || status === 403) later("Notes auth error (" + status + "). Check notes config.");

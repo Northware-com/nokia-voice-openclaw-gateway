@@ -5,11 +5,26 @@ A small HTTP service that receives quick notes from the phone's Notes screen (`*
 - `POST /notes` with `Authorization: Bearer <token>` and a UUID `X-Request-Id`
   - `audio/ogg` (Opus, max 5 MiB): transcribed by a WhisperX HTTP service (`POST <whisperUrl>/transcribe`, multipart `file`, JSON `text`/`language`/`duration_s`)
   - `application/json` `{"text": "..."}` (max 4000 characters)
-  - `201 {"file", "summary"}` once written; a resend with the same request id returns `200` with the same result and writes nothing (also across restarts, the last 2048 ids are kept in `stateFile`)
+  - `201 {"file", "summary", "kind", "label", "due"?}` once written (see Voice commands); a resend with the same request id returns `200` with the same result and writes nothing (also across restarts, the last 2048 ids are kept in `stateFile`)
   - `422 no_speech` for an empty transcript, `503` when the transcriber is down (the phone keeps the note and retries), `400/401/413/415` for bad input
 - `GET /health` (authenticated) returns `{"ok": true}`
 
 The phone shows the one-line `summary` (first sentence, at most 80 characters) as `Saved: ...`.
+
+## Voice commands
+
+A keyword at the start of a voice or typed note routes it; the keyword is dropped from the title, the body keeps the words as said:
+
+| Said | Kind | File | Phone chip |
+|---|---|---|---|
+| `Task …`, `To-do …`, `Opgave …`, `Ny opgave …` | task | `Nokia-Task-….md`, `status: open`, `tags: [task, nokia]` | `✓ Task saved` |
+| `Idea …`, `Idé …`, `Ide …` | idea | `Nokia-Idea-….md`, `status: inbox`, `tags: [idea, nokia]` | `✓ Idea saved` |
+| `Remind me (to) …`, `Reminder …`, `Husk (at) …`, `Husk mig på …`, `Påmind mig om …` | reminder | `Nokia-Reminder-….md`, `status: open`, `due:`, `tags: [reminder, nokia]` | `✓ Reminder 15:00` |
+| anything else | note | `Nokia-Note-….md` (format below) | `✓ Note saved` |
+
+Reminder times, in the service's local time zone: `at 3 pm`, `at 15:00`, `at 3` (English 1-7 without am/pm means the afternoon), `kl. 15`, `klokken 9.30`, `in 20 minutes`, `in an hour`, `in half an hour`, `om 10 minutter`, `om en halv time`, `tomorrow`/`i morgen`, `tonight`/`i aften` (20:00), weekdays (`on Friday`, `på fredag`; today's weekday means next week). A day without a time means 09:00; a time already passed today means tomorrow. Without any time the reminder is saved with no `due` and the chip says `Reminder, no time`. The label (`Reminder tomorrow 9:00`, `Reminder Fri 9:00`, `Reminder 3 Nov 9:00`) is fixed when the note is saved.
+
+The parser is deliberately small and literal (`commands.ts`); anything it does not recognise stays in the reminder text, and the original words are always kept in the body.
 
 ## Note format
 
