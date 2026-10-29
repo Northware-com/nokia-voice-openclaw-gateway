@@ -67,7 +67,7 @@ interface LauncherWindow extends Window { navigator: Navigator & { mozApps?: Moz
     if (event.repeat) return;
     if (event.key === "ArrowUp" || event.keyCode === 38) { select(selected - 1); event.preventDefault(); }
     else if (event.key === "ArrowDown" || event.keyCode === 40) { select(selected + 1); event.preventDefault(); }
-    else if (event.key === "Enter" || event.keyCode === 13) { launch(); event.preventDefault(); }
+    else if (event.key === "Enter" || event.keyCode === 13 || event.key === "SoftLeft") { launch(); event.preventDefault(); }
     else if (event.key === "1" || event.keyCode === 49) { select(0); launch(); event.preventDefault(); }
     else if (event.key === "2" || event.keyCode === 50) { select(1); launch(); event.preventDefault(); }
     else if (event.key === "3" || event.keyCode === 51) { select(2); launch(); event.preventDefault(); }

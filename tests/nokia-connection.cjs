@@ -9,7 +9,7 @@ const BRIDGE = 'https://bridge.example.test/nokia/v1';
 
 // ── Helper: record audio for active session in harness ─────────────────────
 function recordAndFinish(h) {
-  h.key('Enter'); h.grant(); h.key('Enter');
+  h.key('Enter'); h.grant(); h.key('Call');
   const rec = h.recorders.at(-1);
   rec.ondataavailable({data: new Blob(['audio'])});
   rec.onstop();
@@ -40,7 +40,7 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
 // ── Test 1: config.js template has blank URL → NOT CONNECTED ──────────────
 {
   const h = harness(); // no bridgeUrl
-  assert.equal(h.nodes.connection.textContent, 'NOT CONNECTED',
+  assert.equal(h.conn(), 'NOT CONNECTED',
     'Offline harness must show NOT CONNECTED without hitting XHR');
   assert.equal(h.xhrRequests.length, 0, 'No XHR issued when bridgeUrl is blank');
 }
@@ -169,8 +169,8 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
     messages: [{role: 'user', text: 'hello'}, {role: 'assistant', text: 'Hi there from Klaus'}]
   });
   // Transcript should be updated
-  assert.ok(h.nodes.transcript.innerHTML.includes('Klaus'), 'Transcript must show assistant label');
-  assert.ok(h.nodes.transcript.innerHTML.includes('Hi there from Klaus'), 'Transcript must show reply text');
+  assert.ok(h.transcript().includes('hello'), 'Transcript must show the user turn');
+  assert.ok(h.transcript().includes('Hi there from Klaus'), 'Transcript must show reply text');
   // TTS utterance enqueued
   assert.ok(h.utterances.length >= 1, 'TTS utterance must be enqueued for assistant reply');
   assert.ok(h.utterances.some(u => u.text === 'Hi there from Klaus'), 'Enqueued utterance text matches reply');
@@ -199,11 +199,11 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
         messages: [{role: 'user', text: 'q'}, {role: 'assistant', text: 'answer from sess1'}]
       });
       // Currently on session 2: transcript must NOT show session 1's reply
-      assert.ok(!h.nodes.transcript.innerHTML.includes('answer from sess1'),
+      assert.ok(!h.transcript().includes('answer from sess1'),
         'Session 2 transcript must not show session 1 reply when viewing session 2');
       // Switch back to session 1 to verify its transcript
       h.key('ArrowLeft');
-      assert.ok(h.nodes.transcript.innerHTML.includes('answer from sess1'),
+      assert.ok(h.transcript().includes('answer from sess1'),
         'Session 1 transcript must show its reply after switching back');
     }
   }
@@ -250,24 +250,24 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
   h.key('3'); // session 3
   // Now on session 3 (index 2). Arrow right wraps to 0
   h.key('ArrowRight');
-  assert.equal(h.nodes['session-index'].textContent, 'SESSION 1 / 3',
+  assert.equal(h.nodes['session-index'].textContent, '1/3',
     'Right wrap must go to first session');
   // Arrow left from session 1 wraps to last
   h.key('ArrowLeft');
-  assert.equal(h.nodes['session-index'].textContent, 'SESSION 3 / 3',
+  assert.equal(h.nodes['session-index'].textContent, '3/3',
     'Left wrap must go to last session');
 }
 
 // ── Test 12: 3-new creates single session with clear title feedback ────────
 {
   const h = harness();
-  assert.equal(h.nodes['session-index'].textContent, 'SESSION 1 / 1', 'Start with 1 session');
+  assert.equal(h.nodes['session-index'].textContent, '1/1', 'Start with 1 session');
   h.key('3');
-  assert.equal(h.nodes['session-index'].textContent, 'SESSION 2 / 2', '3 creates session 2');
+  assert.equal(h.nodes['session-index'].textContent, '2/2', '3 creates session 2');
   assert.equal(h.nodes['session-title'].textContent, 'Conversation 2', 'New session has correct title');
   assert.ok(h.nodes.status.textContent.includes('Conversation 2'), 'Status confirms new session name');
   h.key('3');
-  assert.equal(h.nodes['session-index'].textContent, 'SESSION 3 / 3', '3 creates session 3');
+  assert.equal(h.nodes['session-index'].textContent, '3/3', '3 creates session 3');
   assert.equal(h.nodes['session-title'].textContent, 'Conversation 3', 'Third session has correct title');
 }
 
@@ -380,78 +380,15 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
 }
 
 // ── Test 21: mozSystem false → honest error, no XHR sent ────────────────
-// Simulates old installed app (manifest without systemXHR) where the
-// constructor arg is accepted but mozSystem stays false on the request object.
+// Simulates an old install (manifest without systemXHR): the constructor argument is
+// accepted but mozSystem stays false on the request object.
 {
-  // harness with bridgeUrl but mozSystem=false (bridgeUrl='' in XHR mock logic)
-  // We override XMLHttpRequest to simulate old install: accepts arg but clears flag.
-  const storage = new Map();
-  const h = harness(storage, BRIDGE);
-  // Patch the context's XMLHttpRequest to simulate old-install: mozSystem never set
-  h.context.XMLHttpRequest = function(opts) {
-    this.mozSystem = false; // old install: constructor arg ignored
-    const self = this;
-    this.open = function(method, url) { self._method = method; self._url = url; };
-    this.setRequestHeader = function() {};
-    this.send = function(body) { h.xhrRequests.push({method: self._method, url: self._url, body, req: self}); };
-    this.timeout = 30000;
-  };
-  // Re-init by patching context — but we need a fresh harness with patched ctor.
-  // Use a harness wrapper that injects the patched constructor.
-  const handlers2 = {}, requests2 = [], xhrRequests2 = [], recorders2 = [];
-  let stopped2 = 0;
-  const revoked2 = [];
-  let nextUrl2 = 0;
-  const intervals2 = {};
-  let nextInterval2 = 1;
-  const utterances2 = [];
-  const player2 = {paused: true, addEventListener() {}, pause() {this.paused = true;},
-    play() {this.paused = false; return {catch() {}};}, removeAttribute() {delete this.src;}};
-  const transcript2 = {innerHTML: '', scrollTop: 0, get scrollHeight() { return 100; }};
-  const connection2 = {textContent: ''};
-  const nodes2 = {status: {}, softkey: {}, 'session-title': {}, 'session-index': {},
-    player: player2, transcript: transcript2, connection: connection2};
-  const vm = require('node:vm');
-  const fs2 = require('node:fs');
-  const src2 = fs2.readFileSync(require('node:path').join(__dirname, '../configs/nokia-klaus/app.js'), 'utf8');
-  const ctx2 = {
-    localStorage: {getItem(k) {return storage.get(k)||null;}, setItem(k,v) {storage.set(k,v);}},
-    document: {hidden: false, getElementById(id) {return nodes2[id];}, addEventListener(n,fn) {handlers2[n]=fn;}},
-    window: {addEventListener(n,fn) {handlers2[n]=fn;}},
-    navigator: {getUserMedia(_c,ok,fail) {requests2.push({ok,fail});}},
-    URL: {createObjectURL() {return `blob:t2-${++nextUrl2}`;}, revokeObjectURL(u) {revoked2.push(u);}},
-    Blob,
-    crypto: {getRandomValues(a) { for (let i=0;i<a.length;i++) a[i]=Math.floor(Math.random()*256); return a; }},
-    setInterval(fn,ms) { const id=nextInterval2++; intervals2[id]={fn,ms,active:true}; return id; },
-    clearInterval(id) { if (intervals2[id]) intervals2[id].active=false; },
-    // Old-install XHR: constructor arg accepted but mozSystem stays false
-    XMLHttpRequest: function(_opts) { this.mozSystem = false; this.open=function(){}; this.setRequestHeader=function(){}; this.send=function(b){xhrRequests2.push({req:this});}; this.timeout=30000; },
-    SpeechSynthesisUtterance: function(t) { this.text=t; utterances2.push(this); },
-    speechSynthesis: {speak(u){if(u.onend)u.onend();}, cancel(){}},
-    MediaRecorder: function() { this.state='inactive'; this.mimeType='audio/ogg'; this.start=()=>{this.state='recording';}; this.stop=()=>{this.state='inactive';}; recorders2.push(this); },
-    NOKIA_RUNTIME_CONFIG: {bridgeUrl: BRIDGE, bridgeToken: 'tok'},
-  };
-  vm.runInNewContext(src2, ctx2);
-  const key2 = k => handlers2.keydown({key:k, preventDefault(){}});
-  const grant2 = () => requests2.at(-1).ok({getTracks(){return [{stop(){stopped2++;}}];}});
-  // Record and finish — triggers submitAudio → xhr() → mozSystem check
-  key2('Enter'); grant2(); key2('Enter');
-  recorders2[0].ondataavailable({data: new Blob(['audio'])});
-  recorders2[0].onstop();
-  // xhr() must have returned null (onError called immediately, no .send() invoked)
-  assert.equal(xhrRequests2.length, 0, 'Old install (mozSystem=false) must not send any XHR');
-  // The permission error must surface somewhere visible to the user:
-  // either the connection indicator or the status bar.
-  const errVisible = nodes2.connection.textContent.includes('systemXHR') ||
-    nodes2.connection.textContent.includes('permission') ||
-    nodes2.status.textContent.includes('systemXHR') ||
-    nodes2.status.textContent.includes('permission') ||
-    nodes2.status.textContent.includes('Reinstall') ||
-    nodes2.status.textContent.includes('Could not') ||
-    nodes2.status.textContent.includes('error');
-  assert.ok(errVisible,
-    'systemXHR error must surface in connection indicator or status. connection=' +
-    nodes2.connection.textContent + ' status=' + nodes2.status.textContent);
+  const h = harness(new Map(), BRIDGE, {oldInstall: true});
+  recordAndFinish(h);
+  assert.equal(h.xhrRequests.length, 0, 'Old install (mozSystem=false) must not send any XHR');
+  assert.equal(h.conn(), 'UNREACHABLE', 'Connection dot reports the failed probe');
+  assert.ok(h.status().includes('systemXHR') && h.status().includes('Could not'),
+    'systemXHR error must surface in status: ' + h.status());
 }
 
 // ── Test 22: POST /sessions carries X-Request-Id equal to clientId ────────
@@ -505,7 +442,7 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
   const healthReq = h.xhrRequests.find(r => r.url.endsWith('/health'));
   assert.ok(healthReq, 'health request issued after sessions probe');
   respondXHR(h, h.xhrRequests.indexOf(healthReq), 503, {connected: true});
-  assert.equal(h.nodes.connection.textContent, 'GATEWAY DOWN',
+  assert.equal(h.conn(), 'GATEWAY DOWN',
     'Non-200 health response must show GATEWAY DOWN not CONNECTED');
 }
 
@@ -520,7 +457,7 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
   req.req.status = 200;
   req.req.responseText = 'not json{{{';
   req.req.onload();
-  assert.equal(h.nodes.connection.textContent, 'GATEWAY DOWN',
+  assert.equal(h.conn(), 'GATEWAY DOWN',
     'Health parse error must show GATEWAY DOWN not CONNECTED');
 }
 
@@ -531,7 +468,7 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
   respondXHR(h, h.xhrRequests.indexOf(sessReq), 200, []);
   const healthReq = h.xhrRequests.find(r => r.url.endsWith('/health'));
   respondXHR(h, h.xhrRequests.indexOf(healthReq), 200, {connected: false, version: '1.0'});
-  assert.equal(h.nodes.connection.textContent, 'GATEWAY DOWN',
+  assert.equal(h.conn(), 'GATEWAY DOWN',
     'health connected:false must show GATEWAY DOWN');
 }
 
@@ -542,7 +479,7 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
   respondXHR(h, h.xhrRequests.indexOf(sessReq), 200, []);
   const healthReq = h.xhrRequests.find(r => r.url.endsWith('/health'));
   respondXHR(h, h.xhrRequests.indexOf(healthReq), 200, {connected: true});
-  assert.equal(h.nodes.connection.textContent, 'CONNECTED',
+  assert.equal(h.conn(), 'CONNECTED',
     'sessions 200 + health 200 connected:true must show CONNECTED');
   // No extra GET /sessions should have been issued as a side effect (just the two expected)
   const extraSess = h.xhrRequests.filter(
@@ -625,12 +562,8 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
   assert.ok(activeIntervals.length >= 1,
     'Cold start: poll must resume for persisted pending session with serverId');
   // Status must indicate waiting (pending state is shown on updateSession)
-  assert.ok(
-    h.nodes.status.textContent.includes('Waiting') ||
-    h.nodes.status.textContent.includes('Klaus') ||
-    h.nodes.status.textContent.includes('reply'),
-    'Cold start: status must show pending/waiting state: ' + h.nodes.status.textContent
-  );
+  assert.ok(h.thinking().startsWith('thinking'),
+    'Cold start: thinking bubble must show pending state: ' + h.thinking());
 }
 
 // ── Test 32: Invalid token — GET /sessions 401 → AUTH ERROR indicator ─────
@@ -639,7 +572,7 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
   const sessReq = h.xhrRequests.find(r => r.method === 'GET' && r.url.endsWith('/sessions'));
   assert.ok(sessReq, 'GET /sessions auth probe must be issued on init');
   respondXHR(h, h.xhrRequests.indexOf(sessReq), 401, {error: 'Unauthorized'});
-  assert.equal(h.nodes.connection.textContent, 'AUTH ERROR',
+  assert.equal(h.conn(), 'AUTH ERROR',
     '401 on GET /sessions must show AUTH ERROR in connection indicator');
   // Health check must NOT be issued after 401 (no point probing health with bad token)
   const healthAfter = h.xhrRequests.filter(r => r.method === 'GET' && r.url.endsWith('/health'));
@@ -777,7 +710,7 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
   assert.ok(archivedSess, 'Archived session must be persisted with archived:true');
   // Header must show only open sessions in count
   const indexText = h.nodes['session-index'].textContent;
-  assert.ok(indexText.includes('1 / 1'), 'Header must show 1/1 open sessions after archiving: ' + indexText);
+  assert.ok(indexText.includes('1/1'), 'Header must show 1/1 open sessions after archiving: ' + indexText);
 }
 
 // ── Test 38: reload — archived session not visible in navigation ──────────
@@ -794,7 +727,7 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
   const openSessions = stored.filter(s => !s.archived);
   assert.ok(openSessions.length >= 1, 'At least one open session after reload');
   const indexText = h2.nodes['session-index'].textContent;
-  assert.ok(indexText.includes('/ ' + openSessions.length), 'Reload: header count matches open sessions');
+  assert.ok(indexText.includes('/' + openSessions.length), 'Reload: header count matches open sessions');
 }
 
 // ── Test 39: archiving pending session does NOT abort cancel or poll ────────
@@ -820,7 +753,7 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
 {
   const h = harness();
   // Only session 1 (the initial one)
-  assert.equal(h.nodes['session-index'].textContent, 'SESSION 1 / 1', 'Start: 1 open session');
+  assert.equal(h.nodes['session-index'].textContent, '1/1', 'Start: 1 open session');
   h.key('7'); h.key('7'); // archive last open session
   // A new fresh session must have been created and activated
   const stored = JSON.parse(h.storage.get('klaus.sessions.v2') || '[]');
@@ -828,7 +761,7 @@ function completeConnectionProbe(h, sessionStatus, healthBody) {
   assert.equal(openSessions.length, 1, 'After archiving last, exactly 1 new open session exists');
   // The active session must be the newly created one (not the archived one)
   const indexText = h.nodes['session-index'].textContent;
-  assert.ok(indexText.includes('1 / 1'), 'After last-archive: header shows 1/1: ' + indexText);
+  assert.ok(indexText.includes('1/1'), 'After last-archive: header shows 1/1: ' + indexText);
 }
 
 // ── Test 41: ← / → skips archived sessions ─────────────────────────────────

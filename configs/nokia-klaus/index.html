@@ -8,15 +8,17 @@
   <script src="config.js"></script>
 </head>
 <body>
-  <main>
-    <header><span>ECORAY / KLAUS</span><span id="connection">NOT CONNECTED</span></header>
-    <section id="session-panel"><span id="session-index">SESSION 1 / 1</span><strong id="session-title">Conversation 1</strong></section>
+  <header id="bar"><span id="session-index">1/1</span><strong id="session-title">Conversation 1</strong><span id="connection" class="off" data-state="NOT CONNECTED" aria-label="NOT CONNECTED">&#9679;</span></header>
+  <div id="chat">
     <div id="transcript" role="log" aria-live="polite" aria-label="Transcript"></div>
-    <p id="status" role="status">Ready. Centre records; 5 replays; ↑↓ scroll.</p>
-    <p id="hint">← / → session · 3 new · 7 archive · ↑↓ scroll</p>
-    <audio id="player" hidden></audio>
-  </main>
-  <footer><span id="softkey">Replay</span><span>Centre · Record / Stop</span><span>5 · Replay</span></footer>
+    <div id="echo" class="msg user hidden"><div class="bubble"></div></div>
+    <div id="thinking" class="msg bot hidden" role="status"><div class="bubble"></div></div>
+  </div>
+  <p id="status" class="hidden" role="status"></p>
+  <input id="composer" type="text" autocomplete="off" placeholder="Type: left key &#183; Talk: OK">
+  <footer id="softkeys"><span id="sk-left">Type</span><span id="sk-center">Talk</span><span id="sk-right">Menu</span></footer>
+  <section id="overlay" class="hidden"><div id="overlay-title"></div><div id="overlay-list"></div></section>
+  <audio id="player" hidden></audio>
   <script src="app.js"></script>
 </body>
 </html>
