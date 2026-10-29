@@ -65,6 +65,8 @@ While recording or paused:
 | SoftLeft | Cancel (discard) | Delete (discard) |
 | Backspace | Discard; clips over 3 s ask for a second Backspace | Same |
 
+Clips are recorded as Ogg/Opus at 16 kbps (about 3.4 KB per second of speech); a recorder that rejects the bitrate option falls back to its default.
+
 When Gecko's `MediaRecorder.pause()` is missing, Pause stops the recorder and keeps the clip; it is only uploaded on Send. The timer excludes paused time.
 
 ## Behaviour

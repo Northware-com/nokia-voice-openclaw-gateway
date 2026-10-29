@@ -20,7 +20,7 @@ The KaiOS app (`nokia-klaus`) targets **KaiOS 2.5 / Gecko 48**:
   access — this requires the `systemXHR` manifest permission and a certified or privileged
   app install.
 - Speech synthesis uses the Web Speech API (`SpeechSynthesisUtterance` / `speechSynthesis`). The tested phone exposed English, French, German, Spanish and Italian voices, but no Danish voice. The app detects Danish text (æøå or common Danish words) and uses a `da-*` voice when one is installed, otherwise it falls back to English; on the tested phone Danish text is therefore still pronounced with the English voice.
-- `MediaRecorder` supplies an Ogg recording for upload. The bridge passes the audio into the gateway’s configured STT pipeline.
+- `MediaRecorder` supplies an Ogg/Opus recording for upload, requested at `audioBitsPerSecond: 16000` (Gecko 48 honours it). On the tested handset an 8 s clip shrank from 62 KB (default) to 27 KB with an identical WhisperX transcript; 12 and 8 kbps began dropping words. `MediaRecorder.mimeType` is empty on Gecko 48, so uploads are labelled `audio/ogg`. The bridge passes the audio into the gateway’s configured STT pipeline.
 - Session storage uses `localStorage`.
 
 ## OpenClaw gateway

@@ -74,8 +74,9 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
     },
     SpeechSynthesisUtterance: function(text) { this.text = text; utterances.push(this); },
     speechSynthesis: { speak(u) { if (u.onend) setTimeout(() => { u.onend(); }, 0); }, cancel() {}, getVoices() { return options.voices || []; } },
-    MediaRecorder: function() {
-      this.state = 'inactive'; this.mimeType = 'audio/ogg';
+    MediaRecorder: function(_stream, opts) {
+      if (opts && options.recorderRejectsOptions) throw new Error('NotSupportedError');
+      this.options = opts; this.state = 'inactive'; this.mimeType = 'audio/ogg';
       this.start = () => {this.state = 'recording';};
       this.stop = () => {this.state = 'inactive';};
       recorders.push(this);
@@ -134,6 +135,15 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   assert.equal(h.nodes.player.paused, false, '5 plays the saved recording when there is no reply to read');
   h.key('5');
   assert.equal(h.nodes.player.paused, true, '5 again stops playback');
+}
+{
+  const h = harness();
+  h.key('Enter'); h.grant();
+  assert.equal(h.recorders[0].options.audioBitsPerSecond, 16000, 'Speech is recorded at 16 kbps');
+  const old = harness(new Map(), '', {recorderRejectsOptions: true});
+  old.key('Enter'); old.grant();
+  assert.equal(old.recorders.length, 1, 'A recorder that rejects options still records with defaults');
+  assert.equal(old.recorders[0].state, 'recording');
 }
 console.log('Nokia audio lifecycle checks passed');
 module.exports = {harness};
