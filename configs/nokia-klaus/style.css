@@ -87,3 +87,10 @@ body { display: flex; flex-direction: column; position: relative; }
 .item.num { padding: 3px 8px; line-height: 20px; border-bottom: 0; }
 .num .key { display: inline-block; width: 20px; margin-right: 6px; text-align: center; font-weight: bold; color: #051111; background: #1bfc9e; border-radius: 3px; }
 .num.sel .key { color: #1bfc9e; background: #051111; }
+
+/* Speed dial chips above the chat list: 1 Notes, 2 Klaus, 3 Last */
+.dial { display: flex; padding: 4px 2px; background: #0d2020; border-bottom: 1px solid #075555; }
+.chip { flex: 1 1 0; font-size: 15px; line-height: 20px; white-space: nowrap; overflow: hidden; text-align: center; }
+.chip .key { display: inline-block; width: 18px; margin-right: 4px; text-align: center; font-weight: bold; color: #051111; background: #1bfc9e; border-radius: 3px; }
+.chip.off { color: #6f8f86; }
+.chip.off .key { background: #3d5650; }

@@ -17,7 +17,7 @@ function firePoll(h) { const id = h.activePolls().at(-1); assert.ok(id, 'a poll 
 function typeAndSend(h, text) {
   h.key('SoftLeft'); h.composer.value = text; h.key('Enter');
 }
-const rows = h => h.nodes['overlay-list'].children.map(row => ({
+const rows = h => h.nodes['overlay-list'].children.filter(row => /\bitem\b/.test(row.className)).map(row => ({
   cls: row.className, title: row.children[0].children[0].textContent,
   time: row.children[0].children[1].textContent, preview: row.children[1].textContent,
 }));

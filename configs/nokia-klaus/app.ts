@@ -222,12 +222,38 @@ namespace Klaus {
       switchTo(next);
     }
 
-    function newSession(): void {
-      if (sessions.length >= MAX_SESSIONS) { say("Maximum " + MAX_SESSIONS + " chats. Archive one first."); return; }
+    function newSession(): boolean {
+      if (sessions.length >= MAX_SESSIONS) { say("Maximum " + MAX_SESSIONS + " chats. Archive one first."); return false; }
       var title = "Conversation " + (openCount() + 1);
       sessions.push(blankSession(title));
       switchTo(sessions.length - 1);
       say("Created " + title + ".");
+      return true;
+    }
+
+    // The most recently used open chat other than the current one, or -1.
+    function previousChat(): number {
+      var best = -1;
+      for (var i = 0; i < sessions.length; i++) {
+        if (i === active || sessions[i].archived) continue;
+        if (best < 0 || sessions[i].updatedAt > sessions[best].updatedAt) best = i;
+      }
+      return best;
+    }
+
+    // Chat list speed dial: 1 Notes, 2 new Klaus chat with the recorder running, 3 last chat.
+    function speedDial(key: string): void {
+      if (key === "1") {
+        if (!notes) { say("Notes are not configured in this build."); return; }
+        closeOverlay(); toggleNotes();
+      } else if (key === "2") {
+        closeOverlay();
+        if (newSession()) startRecording();
+      } else {
+        var prev = previousChat();
+        if (prev < 0) { say("No other chat yet. 2 starts one."); return; }
+        closeOverlay(); switchTo(prev);
+      }
     }
 
     // Archived sessions keep polling and speaking; they are only hidden from navigation.
@@ -878,7 +904,7 @@ namespace Klaus {
         rows.push(sessionRow(s.title, s.messages, isBusyState(s.serverState), s.serverState === "error",
           !!(s.uploadPending || resend[s.id] || s.textPending), s.updatedAt, now));
       }
-      uiSessionList("Chats · " + rows.length, rows, listIndex);
+      uiSessionList("Chats · " + rows.length, rows, listIndex, SPEED_DIAL, [!!notes, sessions.length < MAX_SESSIONS, previousChat() >= 0]);
     }
 
     function selectItem(): void {
@@ -1000,6 +1026,7 @@ namespace Klaus {
         case "notes": toggleNotes(); break;
         case "quick": openQuick(); break;
         case "pick": sendQuick(Number(key) - 1); break;
+        case "dial": speedDial(key); break;
       }
     }
 

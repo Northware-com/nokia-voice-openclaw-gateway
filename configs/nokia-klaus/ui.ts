@@ -225,9 +225,23 @@ namespace Klaus {
   }
 
   // Chat list: two lines per chat (marker + title + time, then a preview), state colours.
-  export function uiSessionList(title: string, rows: SessionRow[], selected: number): void {
+  // dial: speed-dial chips shown above the chats; a falsy enabled entry is dimmed.
+  export function uiSessionList(title: string, rows: SessionRow[], selected: number,
+                                dial?: string[], enabled?: boolean[]): void {
     overlayTitle.textContent = title;
     while (overlayList.firstChild) overlayList.removeChild(overlayList.firstChild);
+    if (dial && dial.length) {
+      var strip = document.createElement("div");
+      strip.className = "dial";
+      for (var d = 0; d < dial.length; d++) {
+        var chip = document.createElement("span");
+        chip.className = enabled && !enabled[d] ? "chip off" : "chip";
+        chip.appendChild(span("key", String(d + 1)));
+        chip.appendChild(span("label", dial[d]));
+        strip.appendChild(chip);
+      }
+      overlayList.appendChild(strip);
+    }
     for (var i = 0; i < rows.length; i++) {
       var row = document.createElement("div");
       row.className = "item chat" + (rows[i].kind ? " " + rows[i].kind : "") + (i === selected ? " sel" : "");

@@ -5,7 +5,7 @@ namespace Klaus {
   export type Action =
     "none" | "type" | "talk" | "menu" | "back" | "cancel" | "send" | "pause" | "resume" | "discard" | "clear" | "voice" |
     "close" | "select" | "up" | "down" | "prev" | "next" | "top" | "bottom" |
-    "pageUp" | "pageDown" | "read" | "autoread" | "sessions" | "new" | "archive" | "exitInput" | "notes" | "quick" | "pick";
+    "pageUp" | "pageDown" | "read" | "autoread" | "sessions" | "new" | "archive" | "exitInput" | "notes" | "quick" | "pick" | "dial";
 
   // Clips longer than this need a second Backspace before they are discarded.
   export var DISCARD_CONFIRM_MS = 3000;
@@ -50,7 +50,9 @@ namespace Klaus {
         if (key === "Backspace") return inputEmpty ? "exitInput" : "none";
         return "none";
       case "menu":
+        return LIST_KEYS[key] || "none";
       case "sessions":
+        if (key === "1" || key === "2" || key === "3") return "dial";
         return LIST_KEYS[key] || "none";
       case "quick":
         if (/^[1-9]$/.test(key)) return "pick";
@@ -195,6 +197,10 @@ namespace Klaus {
     // Busy chats say so in the preview; a leading "…" would read as a clipped title.
     return { kind: kind, title: sessionListLabel(title, false, failed, queued), time: relTime(updatedAt, now), preview: preview };
   }
+
+  // Speed dial on the chat list: 1 Notes for Plato, 2 a new Klaus chat (recording at once),
+  // 3 the previous chat. Labels are short enough for three chips across 240 px.
+  export var SPEED_DIAL = ["Notes", "Klaus", "Last"];
 
   // Quick replies on 1-9, in the language of Klaus's latest reply.
   var QUICK_EN = ["Yes", "No", "Thanks!", "Tell me more", "Shorter, please", "Explain it simply",

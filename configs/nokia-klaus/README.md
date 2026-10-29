@@ -42,11 +42,12 @@ The archive confirm explains itself on screen.
 
 ### Chat list
 
-`#` opens the chat list, most recently used first, so the open chat is on top and the previous one is one Down away. Each chat takes two lines:
+`#` opens the chat list, most recently used first, so the open chat is on top and the previous one is one Down away. A speed-dial strip sits above the chats; each chat takes two lines:
 
 ```
 +------------------------------+
 | Chats · 6                    |
+| [1] Notes  [2] Klaus [3] Last|  speed dial (dimmed when unavailable)
 |[What's on the sho…       now]|  title + time (now, 5m, 14:05, Yday, Mon, 12 Oct)
 |[Milk, eggs, coffee and so…  ]|  preview: latest message, "You: …" for your own
 | Remind me what the p…    40m |
@@ -57,6 +58,14 @@ The archive confirm explains itself on screen.
 | Queued · sends when online   |  amber with a queued clip or message
 +------------------------------+
 ```
+
+Speed dial on the chat list:
+
+| Key | Goes to |
+|---|---|
+| 1 | Notes for Plato (dimmed unless the build has `NOKIA_NOTES_URL`) |
+| 2 | A new Klaus chat with the recorder already running: `#` `2`, speak, Call |
+| 3 | The last chat you used before this one (archived chats are skipped) |
 
 Chats named `Conversation N` take an automatic title from the first thing you said (typed, or the transcript when the bridge returns one), else from the first reply when the chat opened with an untranscribed clip; Menu › Rename fixes a title by hand and stops automatic titles for that chat.
 
@@ -72,6 +81,8 @@ Softkey labels per state:
 | Typing | Clear | Send | Voice |
 | Rename | Clear | Save | Cancel |
 | Menu / chat list | Close | Select / Open | |
+
+On the chat list, 1/2/3 are speed dial (see Chat list).
 | Archive confirm | Cancel | Archive | |
 | Quick replies | Close | Send | |
 
@@ -176,6 +187,7 @@ node tests/nokia-chat-list.cjs   # chat list rows, automatic titles, times, rece
 node tests/nokia-voice-transcript.cjs # clip placeholders, transcript first
 node tests/nokia-quick-replies.cjs # 0 + digit quick replies
 node tests/nokia-read-aloud.cjs  # 5 read/stop, reading banner and outline
+node tests/nokia-speed-dial.cjs  # chat list 1 Notes, 2 Klaus, 3 Last
 ```
 
 ## Notes
