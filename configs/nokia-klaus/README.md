@@ -71,6 +71,7 @@ When Gecko's `MediaRecorder.pause()` is missing, Pause stops the recorder and ke
 
 ## Behaviour
 
+- **Ready to record**: the app reopens the last chat and opens the microphone 300 ms after it becomes visible (and again after each recording), so Centre starts the recorder in about 3 ms instead of 60-125 ms. The stream is released whenever the app is hidden or closed; KaiOS shows its microphone indicator while the app is in front.
 - **Sessions**: up to 128 chats (open + archived). Archived chats are hidden from navigation but keep polling and speaking.
 - **Pending turns**: a thinking bubble shows `sending`/`thinking`/`cancelling` with an elapsed timer. Polling backs off from 1.5 s to 8 s and stops after `pollTimeoutMs` (default 180000) with "no reply yet"; Menu › Retry last resumes polling.
 - **Transcript**: new messages are appended without re-rendering; scroll position is preserved unless you were already at the bottom.

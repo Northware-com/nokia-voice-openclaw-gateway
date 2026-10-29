@@ -3,7 +3,7 @@
   "description": "Voice session bridge to Klaus AI assistant",
   "launch_path": "/index.html",
   "type": "privileged",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "developer": { "name": "Lucas Hanson" },
   "permissions": {
     "audio-capture": { "description": "Record audio only when requested" },

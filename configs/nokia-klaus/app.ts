@@ -59,6 +59,11 @@ namespace Klaus {
     var sendOnStop = true; // false: a stop is a pause fallback that keeps the clip
     var heldClip: Blob | null = null; // stopped-as-pause clip waiting for Send
     var discardArmed = false;
+    // Primed microphone: opened while idle so Centre starts the recorder at once.
+    var primed: MediaStream | null = null;
+    var priming = false;
+    var primeWaiter: { ok: (s: MediaStream) => void; fail: (e: Error) => void } | null = null;
+    var primeTimer: any = null;
 
     // Connection monitor: re-probe periodically and on "online" so queued turns resend.
     var connState: ConnState = "NOT CONNECTED";
@@ -467,6 +472,44 @@ namespace Klaus {
       if (recTicker) { clearInterval(recTicker); recTicker = null; }
       heldClip = null; discardArmed = false; recAccum = 0;
       if (mode === "recording" || mode === "paused") setMode("idle");
+      schedulePrime();
+    }
+
+    function requestMic(ok: (s: MediaStream) => void, fail: (e: Error) => void): boolean {
+      try {
+        if (nav.mediaDevices && nav.mediaDevices.getUserMedia) nav.mediaDevices.getUserMedia({ audio: true }).then(ok, fail);
+        else if (nav.getUserMedia) nav.getUserMedia({ audio: true }, ok, fail);
+        else return false;
+      } catch (e) { fail(e as Error); }
+      return true;
+    }
+
+    function releasePrimed(): void {
+      if (primeTimer) { clearTimeout(primeTimer); primeTimer = null; }
+      if (primed) { primed.getTracks().forEach(function (t: MediaStreamTrack): void { t.stop(); }); primed = null; }
+    }
+
+    // Open the microphone shortly after the app becomes idle and visible; the stream is
+    // released when the app is hidden and handed to the next recording.
+    function schedulePrime(): void {
+      if (!primeTimer) primeTimer = setTimeout(function (): void { primeTimer = null; primeMic(); }, 300);
+    }
+
+    function primeMic(): void {
+      if (primed || priming || busy || document.hidden) return;
+      priming = true;
+      var started = requestMic(function (s: MediaStream): void {
+        priming = false;
+        var waiter = primeWaiter; primeWaiter = null;
+        if (waiter) { waiter.ok(s); return; }
+        if (busy || document.hidden || primed) { s.getTracks().forEach(function (t: MediaStreamTrack): void { t.stop(); }); return; }
+        primed = s;
+      }, function (e: Error): void {
+        priming = false;
+        var waiter = primeWaiter; primeWaiter = null;
+        if (waiter) waiter.fail(e);
+      });
+      if (!started) priming = false;
     }
 
     // Cancel local mic capture only; never server requests or polls.
@@ -498,7 +541,7 @@ namespace Klaus {
       recStart = Date.now();
       setMode("recording");
       recTicker = setInterval(refreshSoftkeys, 1000);
-      say("Requesting microphone…");
+      if (!primed) say("Requesting microphone…");
 
       function onStream(value: MediaStream): void {
         if (gen !== generation) { value.getTracks().forEach(function (t: MediaStreamTrack): void { t.stop(); }); return; }
@@ -543,13 +586,13 @@ namespace Klaus {
         say("Microphone unavailable or permission denied.");
       }
 
-      try {
-        if (nav.mediaDevices && nav.mediaDevices.getUserMedia)
-          nav.mediaDevices.getUserMedia({ audio: true }).then(onStream, onFailure);
-        else if (nav.getUserMedia)
-          nav.getUserMedia({ audio: true }, onStream, onFailure);
-        else { busy = false; endRecordingMode(); say("Microphone capture is unsupported."); }
-      } catch (e) { onFailure(e as Error); }
+      if (primeTimer) { clearTimeout(primeTimer); primeTimer = null; }
+      if (primed && (primed as any).active !== false) { var s = primed; primed = null; onStream(s); }
+      else if (priming) { releasePrimed(); primeWaiter = { ok: onStream, fail: onFailure }; }
+      else {
+        releasePrimed();
+        if (!requestMic(onStream, onFailure)) { busy = false; endRecordingMode(); say("Microphone capture is unsupported."); }
+      }
     }
 
     function deliverClip(sess: LocalSession, blob: Blob): void {
@@ -807,11 +850,12 @@ namespace Klaus {
     player.addEventListener("error", function (): void { if (sessionMedia[cur().id]) say("Playback failed on this device."); });
 
     document.addEventListener("visibilitychange", function (): void {
-      if (document.hidden) cancelLocalCapture();
+      if (document.hidden) { cancelLocalCapture(); releasePrimed(); }
+      else schedulePrime();
     });
 
     window.addEventListener("unload", function (): void {
-      cancelLocalCapture(); player.removeAttribute("src");
+      cancelLocalCapture(); releasePrimed(); player.removeAttribute("src");
       Object.keys(sessionMedia).forEach(function (id: string): void { URL.revokeObjectURL(sessionMedia[id]); });
     });
 
@@ -829,6 +873,7 @@ namespace Klaus {
     setMode("idle");
     uiConn("NOT CONNECTED");
     updateView();
+    schedulePrime();
     function markOffline(): void {
       if (connState === "CONNECTED") { connState = "UNREACHABLE"; uiConn(connState); }
     }
