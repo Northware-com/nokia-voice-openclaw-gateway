@@ -3,7 +3,7 @@ namespace Klaus {
   var bar: HTMLElement, indexEl: HTMLElement, titleEl: HTMLElement, connEl: HTMLElement;
   var chatEl: HTMLElement, listEl: HTMLElement, thinkingEl: HTMLElement, echoEl: HTMLElement;
   var chipEl: HTMLElement, chipTimer: any = null;
-  var statusEl: HTMLElement, bannerEl: HTMLElement, skEls: HTMLElement[], overlayEl: HTMLElement, overlayTitle: HTMLElement, overlayList: HTMLElement;
+  var statusEl: HTMLElement, bannerEl: HTMLElement, levelEl: HTMLElement, skEls: HTMLElement[], overlayEl: HTMLElement, overlayTitle: HTMLElement, overlayList: HTMLElement;
   export var composer: HTMLInputElement;
 
   var rendered: HTMLElement[] = [];
@@ -23,11 +23,11 @@ namespace Klaus {
   export function uiInit(): void {
     bar = byId("bar"); indexEl = byId("session-index"); titleEl = byId("session-title"); connEl = byId("connection");
     chatEl = byId("chat"); listEl = byId("transcript"); thinkingEl = byId("thinking"); echoEl = byId("echo");
-    statusEl = byId("status"); bannerEl = byId("banner"); composer = byId("composer") as HTMLInputElement;
+    statusEl = byId("status"); bannerEl = byId("banner"); levelEl = byId("level"); composer = byId("composer") as HTMLInputElement;
     skEls = [byId("sk-left"), byId("sk-center"), byId("sk-right")];
     overlayEl = byId("overlay"); overlayTitle = byId("overlay-title"); overlayList = byId("overlay-list");
     chipEl = byId("chip");
-    show(chipEl, false); show(thinkingEl, false); show(echoEl, false); show(statusEl, false); show(bannerEl, false); show(overlayEl, false);
+    show(chipEl, false); show(thinkingEl, false); show(echoEl, false); show(statusEl, false); show(bannerEl, false); show(levelEl, false); show(overlayEl, false);
   }
 
   export function uiTopbar(index: number, count: number, title: string): void {
@@ -97,6 +97,16 @@ namespace Klaus {
     bannerEl.className = banner ? banner.kind : "";
     show(bannerEl, !!banner && !typing);
     show(composer, typing || !banner);
+  }
+
+  // Gecko 48 may not expose WebAudio for a microphone stream. In that case the
+  // caller leaves this hidden and recording continues normally.
+  export function uiLevel(amount: number | null): void {
+    show(levelEl, amount !== null);
+    if (amount === null) return;
+    var bars = levelEl.getElementsByTagName("i");
+    var lit = Math.max(0, Math.min(bars.length, Math.ceil(amount * bars.length)));
+    for (var i = 0; i < bars.length; i++) bars[i].className = i < lit ? "on" : "";
   }
 
   export function uiComposerHint(mode: Mode, notes: boolean): void {

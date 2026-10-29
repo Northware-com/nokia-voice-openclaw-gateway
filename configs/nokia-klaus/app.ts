@@ -56,6 +56,8 @@ namespace Klaus {
 
     // Recording
     var stream: MediaStream | null = null;
+    var analyser: AnalyserNode | null = null;
+    var meterTimer: any = null;
     var recorder: MediaRecorder | null = null;
     var chunks: Blob[] = [];
     var generation = 0;
@@ -642,7 +644,30 @@ namespace Klaus {
 
     // ── Recording ───────────────────────────────────────────────────────────
     function stopTracks(): void {
+      if (meterTimer) { clearInterval(meterTimer); meterTimer = null; }
+      if (analyser) { try { analyser.disconnect(); } catch (_e) { /* optional */ } analyser = null; }
+      uiLevel(null);
       if (stream) { stream.getTracks().forEach(function (t: MediaStreamTrack): void { t.stop(); }); stream = null; }
+    }
+
+    function startLevelMeter(value: MediaStream): void {
+      // Optional only: KaiOS/Gecko 48 builds without AudioContext retain recording.
+      try {
+        var Ctor: any = (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (!Ctor) return;
+        var audio = new Ctor();
+        var meter = audio.createAnalyser(); meter.fftSize = 32;
+        analyser = meter;
+        audio.createMediaStreamSource(value).connect(meter);
+        var data = new Uint8Array(meter.frequencyBinCount);
+        meterTimer = setInterval(function (): void {
+          if (!analyser) return;
+          meter.getByteTimeDomainData(data);
+          var sum = 0;
+          for (var i = 0; i < data.length; i++) sum += Math.abs(data[i] - 128);
+          uiLevel(Math.min(1, (sum / data.length) / 38));
+        }, 120);
+      } catch (_e) { uiLevel(null); }
     }
 
     function endRecordingMode(): void {
@@ -723,6 +748,7 @@ namespace Klaus {
       function onStream(value: MediaStream): void {
         if (gen !== generation) { value.getTracks().forEach(function (t: MediaStreamTrack): void { t.stop(); }); return; }
         stream = value;
+        startLevelMeter(value);
         try {
           var rec: MediaRecorder;
           try { rec = new MediaRecorder(value, { audioBitsPerSecond: RECORD_BITRATE }); }

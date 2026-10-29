@@ -61,6 +61,11 @@ body { display: flex; flex-direction: column; position: relative; }
 #banner.offline { background: #4a4f52; color: #ffffff; }
 #banner.failed { background: #8a0f0f; }
 #banner.reading { background: #0e4f45; color: #e7fff5; border-top: 2px solid #1bfc9e; line-height: 26px; }
+#level { flex: 0 0 10px; height: 10px; display: flex; align-items: flex-end; padding: 1px 6px; background: #0d2020; }
+#level i { width: 5px; height: 2px; margin-right: 2px; background: #315d54; }
+#level i.on { background: #1bfc9e; }
+#level i:nth-child(2) { height: 4px; } #level i:nth-child(3) { height: 7px; }
+#level i:nth-child(4) { height: 5px; } #level i:nth-child(5) { height: 3px; }
 
 #composer { flex: 0 0 30px; height: 30px; width: 100%; margin: 0; padding: 0 6px; border: 0; border-top: 1px solid #075555; border-radius: 0; background: #0d2020; color: #ffffff; font: 16px sans-serif; }
 #composer:focus { outline: none; background: #142828; border-top: 2px solid #1bfc9e; }
