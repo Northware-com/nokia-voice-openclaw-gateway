@@ -25,6 +25,9 @@ namespace Klaus {
     } catch (_e) { /* offline mode */ }
     var connected = !!(cfg.bridgeUrl && cfg.bridgeToken);
     var POLL_TIMEOUT = cfg.pollTimeoutMs && cfg.pollTimeoutMs > 0 ? cfg.pollTimeoutMs : 180000;
+    // Opus speech bitrate: the lowest that kept a handset test transcript exact
+    // (about 3.4 KB/s against 7.8 KB/s at the Gecko default; 12 kbps dropped words).
+    var RECORD_BITRATE = 16000;
 
     // ── State ───────────────────────────────────────────────────────────────
     var loaded = loadSessions();
@@ -501,7 +504,9 @@ namespace Klaus {
         if (gen !== generation) { value.getTracks().forEach(function (t: MediaStreamTrack): void { t.stop(); }); return; }
         stream = value;
         try {
-          var rec = new MediaRecorder(value);
+          var rec: MediaRecorder;
+          try { rec = new MediaRecorder(value, { audioBitsPerSecond: RECORD_BITRATE }); }
+          catch (_e) { rec = new MediaRecorder(value); } // recorder without options support
           recorder = rec; chunks = [];
           rec.ondataavailable = function (event: BlobEvent): void {
             if (gen === generation && event.data && event.data.size) chunks.push(event.data);
