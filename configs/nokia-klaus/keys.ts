@@ -5,7 +5,7 @@ namespace Klaus {
   export type Action =
     "none" | "type" | "talk" | "menu" | "back" | "cancel" | "send" | "pause" | "resume" | "discard" | "clear" | "voice" |
     "close" | "select" | "up" | "down" | "prev" | "next" | "top" | "bottom" |
-    "pageUp" | "pageDown" | "read" | "autoread" | "sessions" | "new" | "archive" | "exitInput";
+    "pageUp" | "pageDown" | "read" | "autoread" | "sessions" | "new" | "archive" | "exitInput" | "notes";
 
   // Clips longer than this need a second Backspace before they are discarded.
   export var DISCARD_CONFIRM_MS = 3000;
@@ -15,7 +15,7 @@ namespace Klaus {
     Backspace: "back", Escape: "back",
     ArrowUp: "up", ArrowDown: "down", ArrowLeft: "prev", ArrowRight: "next",
     "4": "prev", "6": "next", "1": "top", "9": "bottom", "2": "pageUp", "8": "pageDown",
-    "5": "read", r: "read", R: "read", "0": "autoread", "#": "sessions", "3": "new", "7": "archive"
+    "5": "read", r: "read", R: "read", "0": "autoread", "#": "sessions", "3": "new", "7": "archive", "*": "notes"
   };
 
   var LIST_KEYS: { [key: string]: Action } = {
@@ -61,8 +61,8 @@ namespace Klaus {
     }
   }
 
-  // Softkey labels [left, centre, right] per mode.
-  export function softkeysFor(mode: Mode, elapsed: string, canResume?: boolean): string[] {
+  // Softkey labels [left, centre, right] per mode. In Notes the right key returns to the chats.
+  export function softkeysFor(mode: Mode, elapsed: string, canResume?: boolean, notes?: boolean): string[] {
     switch (mode) {
       case "recording": return ["Cancel", "Pause", elapsed];
       case "paused": return ["Delete", canResume ? "Resume" : "Send", "Send"];
@@ -71,7 +71,7 @@ namespace Klaus {
       case "menu": return ["Close", "Select", ""];
       case "sessions": return ["Close", "Open", ""];
       case "confirm": return ["Cancel", "Archive", ""];
-      default: return ["Type", "Talk", "Menu"];
+      default: return ["Type", "Talk", notes ? "Chat" : "Menu"];
     }
   }
 

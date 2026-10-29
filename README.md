@@ -23,13 +23,14 @@
 
 A loopback bridge server and two KaiOS phone apps that turn a Nokia 6300 4G into a voice terminal for an OpenClaw-hosted AI assistant. The phone records audio and sends it over HTTPS to the bridge; a dedicated signed backend device forwards it to the existing gateway. Replies return as text and local speech.
 
-Three components:
+Components:
 
 | Component | Path | Purpose |
 |---|---|---|
 | `nokia-bridge` | `configs/nokia-bridge/` | Node.js loopback server — translates phone HTTP into signed WebSocket gateway calls |
 | `nokia-klaus` | `configs/nokia-klaus/` | KaiOS chat app: talk or type, chat bubbles, TTS |
 | `nokia-launcher` | `configs/nokia-launcher/` | KaiOS launcher — quick access to Klaus, Phone, SMS |
+| `nokia-notes` | `configs/nokia-notes/` | Optional quick-note inbox: phone notes to dated Markdown files (WhisperX transcription) |
 
 ## Quickstart
 
@@ -67,6 +68,7 @@ Key bindings on the KaiOS voice app (`nokia-klaus`). The softkey bar always show
 | **0** | Toggle auto read-aloud |
 | **#** | Chat list |
 | **3** / **7** | New chat / archive chat (with confirm) |
+| **\*** | Notes screen: voice/typed notes to the quick-note inbox |
 | **Backspace** | Cancel the pending request or unsent clip; otherwise exits |
 
 Key bindings on the launcher (`nokia-launcher`):

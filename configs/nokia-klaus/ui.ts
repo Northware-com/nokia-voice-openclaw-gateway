@@ -27,7 +27,11 @@ namespace Klaus {
   }
 
   export function uiTopbar(index: number, count: number, title: string): void {
-    indexEl.textContent = index + "/" + count;
+    uiTopbarLabel(index + "/" + count, title);
+  }
+
+  export function uiTopbarLabel(label: string, title: string): void {
+    indexEl.textContent = label;
     titleEl.textContent = title;
   }
 
@@ -79,7 +83,7 @@ namespace Klaus {
   // Render a session's messages. Appends only new rows when the already-rendered prefix
   // is unchanged; otherwise rebuilds. Keeps the reader's scroll position unless they
   // were already at the bottom.
-  export function uiMessages(sessionId: string, messages: ApiMessage[]): void {
+  export function uiMessages(sessionId: string, messages: ApiMessage[], emptyText?: string): void {
     var stick = atBottom();
     var prefixOk = renderedFor === sessionId && messages.length >= rendered.length;
     for (var i = 0; prefixOk && i < rendered.length; i++) {
@@ -90,7 +94,7 @@ namespace Klaus {
     if (!messages.length) {
       var empty = document.createElement("p");
       empty.className = "empty";
-      empty.textContent = "No messages yet. Press OK to talk.";
+      empty.textContent = emptyText || "No messages yet. Press OK to talk.";
       listEl.appendChild(empty);
       return;
     }
@@ -161,7 +165,7 @@ namespace Klaus {
 
   export function uiOverlayHide(): void { show(overlayEl, false); }
 
-  export function uiBarRecording(on: boolean): void {
-    bar.className = on ? "rec" : "";
+  export function uiBarRecording(on: boolean, notes?: boolean): void {
+    bar.className = on ? "rec" : notes ? "notes" : "";
   }
 }

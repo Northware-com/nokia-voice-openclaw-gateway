@@ -23,7 +23,7 @@ if [ -n "${NOKIA_BRIDGE_URL:-}" ]; then
   done
 fi
 
-node "$TSC" --strict --ignoreDeprecations 6.0 --target ES5 --lib DOM,ES2015,ES2016 --skipLibCheck --outFile "$ROOT/app.js" "$ROOT/keys.ts" "$ROOT/storage.ts" "$ROOT/api.ts" "$ROOT/tts.ts" "$ROOT/ui.ts" "$ROOT/app.ts"
+node "$TSC" --strict --ignoreDeprecations 6.0 --target ES5 --lib DOM,ES2015,ES2016 --skipLibCheck --outFile "$ROOT/app.js" "$ROOT/keys.ts" "$ROOT/storage.ts" "$ROOT/api.ts" "$ROOT/tts.ts" "$ROOT/ui.ts" "$ROOT/notes.ts" "$ROOT/app.ts"
 node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$ROOT/manifest.webapp"
 command -v zip >/dev/null 2>&1 || { echo "zip is required" >&2; exit 1; }
 
@@ -65,6 +65,21 @@ if [ -n "${NOKIA_BRIDGE_URL:-}" ]; then
     if (timeout) {
       if (!/^[0-9]{4,7}$/.test(timeout)) throw new Error("NOKIA_POLL_TIMEOUT_MS must be milliseconds (1000-9999999)");
       runtime.pollTimeoutMs = Number(timeout);
+    }
+    // Optional quick notes for Plato (configs/nokia-notes): HTTPS, or plain HTTP to a private LAN address.
+    const notesUrl = process.env.NOKIA_NOTES_URL;
+    if (notesUrl) {
+      const notesFile = process.env.NOKIA_NOTES_CONFIG_FILE;
+      if (!notesFile || (fs.statSync(notesFile).mode & 0o077)) throw new Error("NOKIA_NOTES_CONFIG_FILE must be private (0600)");
+      const notesToken = JSON.parse(fs.readFileSync(notesFile, "utf8")).token;
+      if (typeof notesToken !== "string" || !/^[A-Za-z0-9_-]{32,128}$/.test(notesToken)) throw new Error("Invalid notes token");
+      const n = new URL(notesUrl);
+      const lan = /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(n.hostname);
+      if (!(n.protocol === "https:" || (n.protocol === "http:" && lan)) || n.username || n.password || n.search || n.hash || (n.pathname !== "/" && n.pathname !== "")) {
+        throw new Error("Notes URL must be HTTPS or http://<private LAN address>:port without path, credentials or query");
+      }
+      runtime.notesUrl = notesUrl.replace(/\/$/, "");
+      runtime.notesToken = notesToken;
     }
     fs.writeFileSync(process.argv[1], "var NOKIA_RUNTIME_CONFIG = " + JSON.stringify(runtime) + ";\n", {mode: 0o600});
   ' "$BLANK_CONFIG"

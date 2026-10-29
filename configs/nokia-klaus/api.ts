@@ -1,6 +1,6 @@
 // Bridge HTTP client (privileged mozSystem XHR) and connection probe.
 namespace Klaus {
-  export type RuntimeConfig = { bridgeUrl: string; bridgeToken: string; pollTimeoutMs?: number };
+  export type RuntimeConfig = { bridgeUrl: string; bridgeToken: string; pollTimeoutMs?: number; notesUrl?: string; notesToken?: string };
 
   export type ConnState = "NOT CONNECTED" | "CONNECTED" | "AUTH ERROR" | "GATEWAY DOWN" | "UNREACHABLE";
 

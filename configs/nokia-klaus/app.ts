@@ -70,7 +70,16 @@ namespace Klaus {
     var probing = false;
     var lastProbe = 0;
 
-    function cur(): LocalSession { return sessions[active]; }
+    // Quick notes for Plato (configs/nokia-notes); "*" toggles the Notes screen.
+    var notesMode = false;
+    var notesSess = blankSession("Notes \u2192 Plato");
+    notesSess.id = "notes";
+    var notes: NotesBox | null = cfg.notesUrl && cfg.notesToken
+      ? createNotesBox(cfg.notesUrl, cfg.notesToken, notesChanged, function (text: string): void { if (notesMode) say(text); })
+      : null;
+    if (notes) notesSess.messages = notes.log;
+
+    function cur(): LocalSession { return notesMode ? notesSess : sessions[active]; }
     function isActive(sess: LocalSession): boolean { return sess.id === cur().id; }
     function say(message: string): void { uiStatus(message); }
     function persist(): void {
@@ -80,7 +89,7 @@ namespace Klaus {
     // ── Chrome: softkeys, top bar, thinking bubble ──────────────────────────
     function setMode(next: Mode): void {
       mode = next;
-      uiBarRecording(next === "recording" || next === "paused");
+      uiBarRecording(next === "recording" || next === "paused", notesMode);
       refreshSoftkeys();
     }
 
@@ -89,7 +98,7 @@ namespace Klaus {
     }
 
     function refreshSoftkeys(): void {
-      var labels = softkeysFor(mode, formatElapsed(recElapsed()), canResume);
+      var labels = softkeysFor(mode, formatElapsed(recElapsed()), canResume, notesMode);
       setSoftkeys(labels[0], labels[1], labels[2]);
     }
 
@@ -107,9 +116,17 @@ namespace Klaus {
       return 1;
     }
 
-    function refreshTopbar(): void { uiTopbar(openIndex(), openCount(), cur().title); }
+    function refreshTopbar(): void {
+      if (notesMode) uiTopbarLabel("\u270e", notesSess.title);
+      else uiTopbar(openIndex(), openCount(), cur().title);
+    }
 
     function thinkingLabel(sess: LocalSession): string | null {
+      if (sess === notesSess) {
+        if (!notes || !notes.queue.length) return null;
+        if (notes.sending) return "saving note " + ["·  ", "·· ", "···"][dots % 3];
+        return notes.queue.length + (notes.queue.length === 1 ? " note" : " notes") + " queued";
+      }
       if (!isBusyState(sess.serverState)) return null;
       if (stalled[sess.id]) return "no reply yet · Menu › Retry";
       var word = sess.serverState === "cancelling" ? "cancelling" : sending[sess.id] ? "sending" : "thinking";
@@ -122,6 +139,7 @@ namespace Klaus {
       var label = thinkingLabel(sess);
       var last = sess.messages.length ? sess.messages[sess.messages.length - 1] : null;
       var echo = sess.lastText && !(last && last.role === "user" && last.text === sess.lastText) ? sess.lastText : null;
+      if (sess === notesSess) echo = notes && notes.queue.length ? notes.queue[0].text || "Voice note" : null;
       uiThinking(label, echo);
       if (label && !thinkingTicker) {
         thinkingTicker = setInterval(function (): void { dots++; refreshThinking(); }, 500);
@@ -136,13 +154,34 @@ namespace Klaus {
       refreshTopbar();
       player.pause(); player.removeAttribute("src");
       if (sessionMedia[sess.id]) player.src = sessionMedia[sess.id];
-      uiMessages(sess.id, sess.messages);
+      uiMessages(sess.id, sess.messages, notesMode ? "No notes yet. OK to talk, left key to type. They go to Plato's inbox." : undefined);
       selected = -1;
       uiSelect(-1, true);
       refreshThinking();
       refreshSoftkeys();
       if (sess.serverState === "error") say("Last request failed. Menu › Retry last.");
       else if (sess.uploadPending) say("Voice clip not sent yet. Menu › Retry last.");
+    }
+
+    // ── Notes ───────────────────────────────────────────────────────────────
+    function notesChanged(): void {
+      if (!notesMode || !notes) return;
+      notesSess.messages = notes.log;
+      uiMessages(notesSess.id, notesSess.messages);
+      if (selected >= notesSess.messages.length) selected = -1;
+      refreshThinking();
+    }
+
+    function toggleNotes(): void {
+      if (!notes) { say("Notes are not configured in this build."); return; }
+      cancelLocalCapture();
+      notesMode = !notesMode;
+      setMode("idle");
+      updateView();
+      if (notesMode) {
+        say(notes.queue.length ? "" : "Note for Plato: OK to talk, left key to type.");
+        notes.flush();
+      }
     }
 
     // ── Sessions ────────────────────────────────────────────────────────────
@@ -623,7 +662,8 @@ namespace Klaus {
       } catch (_e) { /* playback copy is optional */ }
       say("");
       ttsNext();
-      submitTurn(sess, blob, null, true);
+      if (sess === notesSess && notes) notes.add(blob, null);
+      else submitTurn(sess, blob, null, true);
     }
 
     // Send the clip: from a held (stopped) clip, or by stopping a live/paused recorder.
@@ -704,7 +744,8 @@ namespace Klaus {
       if (!text) { say("Type a message first."); return; }
       composer.value = "";
       exitInput();
-      submitTurn(cur(), null, text, true);
+      if (notesMode && notes) notes.add(null, text);
+      else submitTurn(cur(), null, text, true);
     }
 
     // ── Menu, session list, confirm ─────────────────────────────────────────
@@ -802,6 +843,10 @@ namespace Klaus {
 
     // Back in idle: cancel what is in flight; returns false to let KaiOS close the app.
     function handleBack(): boolean {
+      if (notesMode) {
+        if (selected >= 0) focusMessage(-1, true); else toggleNotes();
+        return true;
+      }
       var sess = cur();
       if (isBusyState(sess.serverState)) { cancelSession(sess); say("Cancelled."); return true; }
       if (sess.uploadPending) { dropClip(sess); clearOutbox(sess); persist(); say("Unsent clip discarded."); return true; }
@@ -818,6 +863,12 @@ namespace Klaus {
 
     function run(action: Action): void {
       var count = cur().messages.length;
+      if (notesMode) {
+        if (action === "menu") { toggleNotes(); return; }
+        if (action === "prev" || action === "next" || action === "sessions" || action === "new" || action === "archive") {
+          say("Notes: * or Chat returns to the chats."); return;
+        }
+      }
       switch (action) {
         case "type": enterInput("typing", ""); break;
         case "talk": startRecording(); break;
@@ -845,6 +896,7 @@ namespace Klaus {
         case "sessions": openSessionList(); break;
         case "new": newSession(); break;
         case "archive": openConfirm(); break;
+        case "notes": toggleNotes(); break;
       }
     }
 
@@ -929,19 +981,21 @@ namespace Klaus {
         connState = state;
         uiConn(state);
         if (state !== "CONNECTED") return;
+        if (notes) notes.flush();
         var n = retryAllQueued();
         if (was !== "CONNECTED" && was !== "NOT CONNECTED" && n) say("Back online. Sending queued messages…");
       });
     }
 
     probe();
+    if (notes) notes.flush();
     if (connected) {
       // Fast re-probe while offline; slow keep-alive check while connected.
       setInterval(function (): void {
         var every = connState === "CONNECTED" ? 60000 : 15000;
         if (!document.hidden && Date.now() - lastProbe >= every) probe();
       }, 5000);
-      window.addEventListener("online", function (): void { probe(); });
+      window.addEventListener("online", function (): void { probe(); if (notes) notes.flush(); });
       window.addEventListener("offline", function (): void { markOffline(); say("Offline. Messages will queue."); });
     }
   })();

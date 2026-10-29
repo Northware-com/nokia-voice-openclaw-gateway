@@ -2,6 +2,7 @@ node_modules/
 
 # Compiled bridge output — generated, not maintained by hand
 configs/nokia-bridge/dist/
+configs/nokia-notes/dist/
 configs/nokia-bridge/app.js
 
 # Compiled phone app output
