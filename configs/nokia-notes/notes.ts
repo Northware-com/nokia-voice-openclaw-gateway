@@ -6,6 +6,7 @@ import * as fs from 'node:fs';
 import * as http from 'node:http';
 import * as path from 'node:path';
 import { classify, confirmLabel, type Command, type NoteKind } from './commands';
+import { renderMeeting, type Segment } from './meeting';
 
 export const AUDIO_LIMIT = 5 * 1024 * 1024;
 export const TEXT_LIMIT = 4000;
@@ -18,7 +19,11 @@ export type NotesConfig = {
   stateFile: string;      // request id -> saved note, for idempotent resends
   whisperUrl: string;     // e.g. http://freyr:9090 (POST /transcribe, multipart "file")
   transcribeTimeoutMs?: number;
+  meetingsDir?: string;   // meeting audio until its note is written (default: <stateFile dir>/meetings)
+  meetingRetryMs?: number; // wait before retrying a meeting while the transcriber is down
 };
+
+export type NotesServer = http.Server & { meetingsIdle: () => Promise<void> };
 
 // kind/label/due: what the leading keyword made of the note ("Task saved", "Reminder 15:00").
 export type SavedNote = { file: string; summary: string; kind?: NoteKind; label?: string; due?: string };
@@ -47,7 +52,11 @@ export function stamp(date: Date): { day: string; time: string; iso: string } {
 
 function yamlString(value: string): string { return JSON.stringify(value); }
 
-const FILE_PREFIX: Record<NoteKind, string> = { note: 'Nokia-Note', task: 'Nokia-Task', idea: 'Nokia-Idea', reminder: 'Nokia-Reminder' };
+const FILE_PREFIX: Record<NoteKind, string> = {
+  note: 'Nokia-Note', task: 'Nokia-Task', idea: 'Nokia-Idea', reminder: 'Nokia-Reminder', meeting: 'Nokia-Meeting',
+};
+export const MEETING_SEGMENTS_MAX = 600; // ten hours of one-minute segments
+const MEETING_SEGMENT_ATTEMPTS = 5;
 
 // Plain notes keep the inbox format; tasks, ideas and reminders get their type, an open
 // status and tags so vault queries can find them, and reminders their due time.
@@ -115,7 +124,7 @@ async function transcribe(cfg: NotesConfig, audio: Buffer): Promise<Transcript> 
   };
 }
 
-export function createNotesServer(cfg: NotesConfig, now: () => Date = () => new Date()): http.Server {
+export function createNotesServer(cfg: NotesConfig, now: () => Date = () => new Date()): NotesServer {
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(cfg.token)) throw new Error('Notes token must be 32-128 URL-safe characters');
   let saved: Record<string, SavedNote> = {};
   try { saved = JSON.parse(fs.readFileSync(cfg.stateFile, 'utf8')); } catch { /* first run */ }
@@ -175,13 +184,131 @@ export function createNotesServer(cfg: NotesConfig, now: () => Date = () => new 
     return note;
   }
 
+  // ── Meetings: segments are stored privately as they arrive; "finish" queues the meeting,
+  // which is transcribed segment by segment (each transcript cached, so a transcriber outage
+  // only delays it) and written as one note. The audio is deleted once the note exists.
+  const meetingsDir = cfg.meetingsDir || path.join(path.dirname(cfg.stateFile), 'meetings');
+  fs.mkdirSync(meetingsDir, { recursive: true, mode: 0o700 });
+  const meetingJobs = new Map<string, Promise<void>>();
+  const retryTimers = new Set<NodeJS.Timeout>();
+  const segName = (seq: number): string => `seg-${String(seq).padStart(4, '0')}`;
+
+  function writePrivate(file: string, data: string | Buffer): void {
+    fs.writeFileSync(file + '.tmp', data, { mode: 0o600 });
+    fs.renameSync(file + '.tmp', file);
+  }
+
+  async function processMeeting(id: string): Promise<void> {
+    const dir = path.join(meetingsDir, id);
+    const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')) as
+      { requestId: string; segments: number; startedAt: number; durationMs: number; segmentMs: number };
+    const segments: Segment[] = [];
+    let language: string | undefined;
+    const files = fs.readdirSync(dir).filter(f => /^seg-\d{4}\.ogg$/.test(f)).sort();
+    for (const f of files) {
+      const seq = Number(f.slice(4, 8));
+      const cache = path.join(dir, segName(seq) + '.json');
+      let part: { text: string; language?: string; failed?: boolean };
+      if (fs.existsSync(cache)) part = JSON.parse(fs.readFileSync(cache, 'utf8'));
+      else {
+        // A segment the transcriber keeps failing on (five attempts) is written up as
+        // unreadable rather than holding the whole meeting back forever.
+        const errors = path.join(dir, segName(seq) + '.errors');
+        try {
+          const t = await transcribe(cfg, fs.readFileSync(path.join(dir, f)));
+          part = { text: t.text, language: t.language };
+        } catch (error) {
+          const attempts = (fs.existsSync(errors) ? Number(fs.readFileSync(errors, 'utf8')) || 0 : 0) + 1;
+          if (attempts < MEETING_SEGMENT_ATTEMPTS) { writePrivate(errors, String(attempts)); throw error; }
+          part = { text: '', failed: true };
+        }
+        writePrivate(cache, JSON.stringify(part));
+      }
+      segments.push({ seq, text: part.text, failed: part.failed });
+      language = language || part.language;
+    }
+    const started = new Date(meta.startedAt);
+    const { markdown, title } = renderMeeting({
+      id, startedIso: stamp(started).iso, durationMs: meta.durationMs, segmentMs: meta.segmentMs,
+      expected: Math.max(meta.segments, segments.length ? segments[segments.length - 1].seq : 0), segments, language,
+    });
+    const file = writeNote(markdown, started, 'meeting');
+    const note: SavedNote = { file, summary: title, kind: 'meeting', label: 'Meeting saved' };
+    remember(meta.requestId, note);
+    remember('meeting:' + id, note);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+
+  function scheduleMeeting(id: string): void {
+    if (meetingJobs.has(id)) return;
+    const job = processMeeting(id).catch(() => {
+      // Transcriber down or a disk error: keep everything and try again later.
+      const timer = setTimeout(() => { retryTimers.delete(timer); scheduleMeeting(id); }, cfg.meetingRetryMs ?? 60000);
+      retryTimers.add(timer);
+    }).finally(() => meetingJobs.delete(id));
+    meetingJobs.set(id, job);
+  }
+
+  // Meetings finished before a restart resume on start.
+  for (const id of fs.readdirSync(meetingsDir)) {
+    if (UUID.test(id) && fs.existsSync(path.join(meetingsDir, id, 'meta.json'))) scheduleMeeting(id);
+  }
+
+  function meetingDir(id: string): string {
+    const dir = path.join(meetingsDir, id);
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    return dir;
+  }
+
+  function saveSegment(id: string, seq: number, bytes: Buffer): { status: number; value: unknown } {
+    if (saved['meeting:' + id]) return { status: 200, value: { stored: seq } }; // already written up
+    if (bytes.length < 4 || bytes.subarray(0, 4).toString() !== 'OggS') throw new HttpError(400, 'invalid_ogg');
+    const file = path.join(meetingDir(id), segName(seq) + '.ogg');
+    if (fs.existsSync(file)) return { status: 200, value: { stored: seq } };
+    writePrivate(file, bytes);
+    return { status: 201, value: { stored: seq } };
+  }
+
+  function finishMeeting(id: string, requestId: string, bytes: Buffer): { status: number; value: unknown } {
+    const pending = { state: 'processing', kind: 'meeting', label: 'Meeting saved', summary: 'Transcript and summary follow in the inbox' };
+    if (saved['meeting:' + id]) return { status: 200, value: saved['meeting:' + id] };
+    const metaFile = path.join(meetingsDir, id, 'meta.json');
+    if (fs.existsSync(metaFile)) return { status: 202, value: pending };
+    let body: { segments?: unknown; startedAt?: unknown; durationMs?: unknown; segmentMs?: unknown };
+    try { body = JSON.parse(bytes.toString('utf8')); } catch { throw new HttpError(400, 'invalid_json'); }
+    const int = (v: unknown, min: number, max: number): boolean => typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
+    if (!int(body.segments, 0, MEETING_SEGMENTS_MAX) || !int(body.startedAt, 0, 4e12) ||
+        !int(body.durationMs, 0, 36e6) || !int(body.segmentMs, 1000, 600000)) throw new HttpError(400, 'invalid_meeting');
+    writePrivate(path.join(meetingDir(id), 'meta.json'), JSON.stringify({
+      requestId, segments: body.segments, startedAt: body.startedAt, durationMs: body.durationMs, segmentMs: body.segmentMs,
+    }));
+    scheduleMeeting(id);
+    return { status: 202, value: pending };
+  }
+
+  async function handleMeeting(req: http.IncomingMessage, id: string, seq: number | null, requestId: string): Promise<{ status: number; value: unknown }> {
+    const contentType = (req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    if (seq !== null) {
+      if (contentType !== 'audio/ogg') throw new HttpError(415, 'unsupported_media_type');
+      return saveSegment(id, seq, await readBody(req, AUDIO_LIMIT));
+    }
+    if (contentType !== 'application/json') throw new HttpError(415, 'unsupported_media_type');
+    return finishMeeting(id, requestId, await readBody(req, 1024));
+  }
+
   async function handle(req: http.IncomingMessage): Promise<{ status: number; value: unknown }> {
     if (!tokenMatches(req.headers.authorization, cfg.token)) throw new HttpError(401, 'unauthorized');
     if (req.url === '/health' && req.method === 'GET') return { status: 200, value: { ok: true } };
-    if (req.url !== '/notes') throw new HttpError(404, 'not_found');
+    const meeting = /^\/meetings\/([0-9a-f-]{36})\/(?:segments\/(\d{1,4})|finish)$/i.exec(req.url || '');
+    if (req.url !== '/notes' && !(meeting && UUID.test(meeting[1]))) throw new HttpError(404, 'not_found');
     if (req.method !== 'POST') throw new HttpError(405, 'method_not_allowed');
     const requestId = req.headers['x-request-id'];
     if (typeof requestId !== 'string' || !UUID.test(requestId)) throw new HttpError(400, 'uuid_request_id_required');
+    if (meeting) {
+      const seq = meeting[2] ? Number(meeting[2]) : null;
+      if (seq !== null && (seq < 1 || seq > MEETING_SEGMENTS_MAX)) throw new HttpError(404, 'not_found');
+      return handleMeeting(req, meeting[1].toLowerCase(), seq, requestId);
+    }
     const contentType = (req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
     if (contentType !== 'audio/ogg' && contentType !== 'application/json') throw new HttpError(415, 'unsupported_media_type');
     const bytes = await readBody(req, contentType === 'audio/ogg' ? AUDIO_LIMIT : TEXT_LIMIT * 4 + 128);
@@ -194,7 +321,7 @@ export function createNotesServer(cfg: NotesConfig, now: () => Date = () => new 
     return { status: 201, value: await pending };
   }
 
-  return http.createServer((req, res) => {
+  const server = http.createServer((req, res) => {
     handle(req).then(
       ({ status, value }) => send(res, status, value),
       (error: unknown) => {
@@ -203,7 +330,11 @@ export function createNotesServer(cfg: NotesConfig, now: () => Date = () => new 
         send(res, 500, { error: 'internal' });
       },
     );
-  });
+  }) as NotesServer;
+  // Tests and shutdown: wait for meetings being written; closing stops their retries.
+  server.meetingsIdle = async (): Promise<void> => { while (meetingJobs.size) await Promise.all([...meetingJobs.values()]); };
+  server.on('close', () => { for (const t of retryTimers) clearTimeout(t); retryTimers.clear(); });
+  return server;
 }
 
 function send(res: http.ServerResponse, status: number, value: unknown): void {

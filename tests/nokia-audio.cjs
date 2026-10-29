@@ -70,7 +70,7 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   composer.blur = function () { document.activeElement = null; if (this.listeners.blur) this.listeners.blur(); };
   const context = {
     Date: FakeDate,
-    localStorage: {getItem(key) {return storage.has(key) ? storage.get(key) : null;}, setItem(key, value) {storage.set(key, value);}},
+    localStorage: {getItem(key) {return storage.has(key) ? storage.get(key) : null;}, setItem(key, value) {storage.set(key, value);}, removeItem(key) {storage.delete(key);}},
     document,
     window: {addEventListener(name, fn) {handlers[name] = fn;}},
     navigator: Object.assign({getUserMedia(_constraints, ok, fail) {requests.push({ok, fail});}},

@@ -23,7 +23,7 @@ if [ -n "${NOKIA_BRIDGE_URL:-}" ]; then
   done
 fi
 
-node "$TSC" --strict --ignoreDeprecations 6.0 --target ES5 --lib DOM,ES2015,ES2016 --skipLibCheck --outFile "$ROOT/app.js" "$ROOT/keys.ts" "$ROOT/storage.ts" "$ROOT/api.ts" "$ROOT/tts.ts" "$ROOT/ui.ts" "$ROOT/notes.ts" "$ROOT/app.ts"
+node "$TSC" --strict --ignoreDeprecations 6.0 --target ES5 --lib DOM,ES2015,ES2016 --skipLibCheck --outFile "$ROOT/app.js" "$ROOT/keys.ts" "$ROOT/storage.ts" "$ROOT/api.ts" "$ROOT/tts.ts" "$ROOT/ui.ts" "$ROOT/notes.ts" "$ROOT/meeting.ts" "$ROOT/app.ts"
 node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$ROOT/manifest.webapp"
 command -v zip >/dev/null 2>&1 || { echo "zip is required" >&2; exit 1; }
 

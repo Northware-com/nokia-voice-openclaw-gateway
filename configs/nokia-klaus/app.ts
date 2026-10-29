@@ -7,6 +7,7 @@ type LegacyNavigator = Navigator & {
   getUserMedia?: (constraints: MediaStreamConstraints, success: (stream: MediaStream) => void, failure: (error: Error) => void) => void;
   mozAudioChannelManager?: { volumeControlChannel: string };
   vibrate?: (pattern: number[]) => boolean;
+  requestWakeLock?: (topic: string) => { unlock: () => void };
 };
 
 declare var NOKIA_RUNTIME_CONFIG: Klaus.RuntimeConfig | undefined;
@@ -86,6 +87,13 @@ namespace Klaus {
       : null;
     if (notes) notesSess.messages = notes.log;
 
+    // Meeting mode (Notes screen, 0): long recording in one-minute segments, queued as they end.
+    var meeting: MeetingRecorder | null = notes ? createMeetingRecorder(RECORD_BITRATE,
+      function (blob: Blob): void { if (notes) notes.meetingSegment(blob); refreshBanner(); },
+      meetingEnded,
+      function (): void { if (notes) notes.meetingFinish(meeting ? meeting.elapsed() : 0); endMeeting(); say("Recording failed. Saved parts are being sent."); }) : null;
+    var wakeLock: { unlock: () => void } | null = null;
+
     function cur(): LocalSession { return notesMode ? notesSess : sessions[active]; }
     function isActive(sess: LocalSession): boolean { return sess.id === cur().id; }
     function say(message: string): void {
@@ -110,13 +118,14 @@ namespace Klaus {
     // ── Chrome: softkeys, top bar, thinking bubble ──────────────────────────
     function setMode(next: Mode): void {
       mode = next;
-      uiBarRecording(next === "recording" || next === "paused", notesMode, next === "paused");
+      uiBarRecording(next === "recording" || next === "paused" || next === "meeting", notesMode, next === "paused");
       uiComposerHint(next, notesMode);
       uiEmptyHint(emptyHint(next, notesMode));
       refreshSoftkeys();
     }
 
     function recElapsed(): number {
+      if (mode === "meeting" && meeting) return meeting.elapsed();
       return recAccum + (mode === "recording" ? Date.now() - recStart : 0);
     }
 
@@ -128,7 +137,8 @@ namespace Klaus {
 
     function refreshBanner(): void {
       var sess = cur();
-      var state: BannerState = { mode: mode, elapsed: formatElapsed(recElapsed()), discardArmed: discardArmed, notes: notesMode, connected: connState === "CONNECTED" };
+      var state: BannerState = { mode: mode, elapsed: formatElapsed(recElapsed()), discardArmed: discardArmed, notes: notesMode, connected: connState === "CONNECTED",
+        parts: meeting ? meeting.parts() : 0 };
       if (sess === notesSess) {
         state.sending = !!(notes && notes.sending);
         state.queued = notes ? notes.queue.length : 0;
@@ -165,7 +175,10 @@ namespace Klaus {
     function thinkingLabel(sess: LocalSession): string | null {
       if (sess === notesSess) {
         if (!notes || !notes.queue.length) return null;
-        if (notes.sending) return "saving note " + ["·  ", "·· ", "···"][dots % 3];
+        var head = notes.queue[0];
+        var what = head.finish ? "asking for the meeting note" : head.meeting ? "uploading meeting part " + head.seq : "saving note";
+        if (notes.sending) return what + " " + ["·  ", "·· ", "···"][dots % 3];
+        if (head.meeting) return notes.queue.length + " queued · " + queuedLabel(head);
         return notes.queue.length + (notes.queue.length === 1 ? " note" : " notes") + " queued";
       }
       if (!isBusyState(sess.serverState)) return null;
@@ -180,7 +193,7 @@ namespace Klaus {
       var label = thinkingLabel(sess);
       var last = sess.messages.length ? sess.messages[sess.messages.length - 1] : null;
       var echo = sess.lastText && !(last && last.role === "user" && last.text === sess.lastText) ? sess.lastText : null;
-      if (sess === notesSess) echo = notes && notes.queue.length ? notes.queue[0].text || "Voice note" : null;
+      if (sess === notesSess) echo = notes && notes.queue.length ? queuedLabel(notes.queue[0]) : null;
       uiThinking(label, echo);
       refreshBanner();
       if (label && !thinkingTicker) {
@@ -837,6 +850,62 @@ namespace Klaus {
       cancelLocalCapture("Recording discarded.");
     }
 
+    // ── Meeting mode ────────────────────────────────────────────────────────
+    function startMeeting(): void {
+      if (!notes || !meeting || busy) return;
+      player.pause();
+      ttsInterrupt();
+      busy = true;
+      var gen = ++generation;
+      say(primed ? "" : "Requesting microphone…");
+      function onStream(value: MediaStream): void {
+        if (gen !== generation || !notes || !meeting) { value.getTracks().forEach(function (t: MediaStreamTrack): void { t.stop(); }); return; }
+        stream = value;
+        try { meeting.start(value); }
+        catch (_e) { stopTracks(); busy = false; say("Recorder unavailable on this device."); return; }
+        notes.meetingStart();
+        // Keep the CPU awake with the screen off (KaiOS wake lock); unknown elsewhere.
+        try { wakeLock = nav.requestWakeLock ? nav.requestWakeLock("cpu") : null; } catch (_e) { wakeLock = null; }
+        setMode("meeting");
+        buzz("start");
+        recTicker = setInterval(function (): void { if (meeting) meeting.tick(); refreshSoftkeys(); }, 1000);
+        say("");
+      }
+      function onFailure(_e: Error): void {
+        if (gen !== generation) return;
+        busy = false;
+        say("Microphone unavailable or permission denied.");
+      }
+      if (primeTimer) { clearTimeout(primeTimer); primeTimer = null; }
+      if (primed && (primed as any).active !== false) { var s = primed; primed = null; onStream(s); }
+      else {
+        releasePrimed();
+        if (!requestMic(onStream, onFailure)) { busy = false; say("Microphone capture is unsupported."); }
+      }
+    }
+
+    function stopMeeting(): void {
+      if (meeting && meeting.running()) { say("Saving the last part…"); meeting.stop(); }
+    }
+
+    function meetingEnded(ms: number): void {
+      if (notes) notes.meetingFinish(ms);
+      endMeeting();
+      buzz("send");
+      say("Meeting " + formatElapsed(ms) + " saved. Plato writes the note.");
+    }
+
+    function endMeeting(): void {
+      if (recTicker) { clearInterval(recTicker); recTicker = null; }
+      if (wakeLock) { try { wakeLock.unlock(); } catch (_e) { /* released */ } wakeLock = null; }
+      stopTracks();
+      busy = false;
+      generation++;
+      if (mode === "meeting") setMode("idle");
+      refreshThinking();
+      schedulePrime();
+    }
+
     // ── Typing / rename ─────────────────────────────────────────────────────
     function enterInput(next: Mode, value: string): void {
       composer.value = value;
@@ -1015,6 +1084,7 @@ namespace Klaus {
 
     // Back in idle: cancel what is in flight; returns false to let KaiOS close the app.
     function handleBack(): boolean {
+      if (mode === "meeting") { say("The meeting is still recording. OK stops and saves it."); return true; }
       if (notesMode) {
         if (selected >= 0) focusMessage(-1, true); else toggleNotes();
         return true;
@@ -1037,7 +1107,8 @@ namespace Klaus {
       var count = cur().messages.length;
       if (notesMode) {
         if (action === "menu") { toggleNotes(); return; }
-        if (action === "prev" || action === "next" || action === "sessions" || action === "new" || action === "archive" || action === "quick") {
+        if (action === "quick") { startMeeting(); return; }
+        if (action === "prev" || action === "next" || action === "sessions" || action === "new" || action === "archive") {
           say("Notes: * or Chat returns to the chats."); return;
         }
       }
@@ -1075,6 +1146,7 @@ namespace Klaus {
           else if (Number(key) <= menuItems().length) { listIndex = Number(key) - 1; selectItem(); }
           break;
         case "dial": speedDial(key); break;
+        case "stopMeeting": stopMeeting(); break;
       }
     }
 
@@ -1083,6 +1155,7 @@ namespace Klaus {
       if (key === "SoftLeft") return 0;
       if (key === "Enter" || key === " ") return 1;
       if (key === "SoftRight") return 2;
+      if (key === "Call" && mode === "meeting") return 2;
       if (key === "Call") return softkeysFor(mode, "", canResume, notesMode).indexOf("Send");
       return -1;
     }
@@ -1114,6 +1187,7 @@ namespace Klaus {
     player.addEventListener("error", function (): void { if (sessionMedia[cur().id]) say("Playback failed on this device."); });
 
     document.addEventListener("visibilitychange", function (): void {
+      if (mode === "meeting") return; // a meeting keeps recording with the screen off
       if (document.hidden) { cancelLocalCapture(); releasePrimed(); }
       else schedulePrime();
     });

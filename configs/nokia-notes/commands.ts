@@ -1,7 +1,8 @@
 // Spoken or typed commands at the start of a note: "task …", "idea …", "remind me … at 15:00",
 // and the Danish "opgave …", "idé …", "husk … kl. 15". Pure functions; the clock is passed in.
 
-export type NoteKind = 'note' | 'task' | 'idea' | 'reminder';
+// meeting: written by the meeting recorder (meeting.ts), never by a keyword.
+export type NoteKind = 'note' | 'task' | 'idea' | 'reminder' | 'meeting';
 
 export type Command = {
   kind: NoteKind;
@@ -117,6 +118,7 @@ export function confirmLabel(command: Command, now: Date): string {
   if (command.kind === 'task') return 'Task saved';
   if (command.kind === 'idea') return 'Idea saved';
   if (command.kind === 'note') return 'Note saved';
+  if (command.kind === 'meeting') return 'Meeting saved';
   if (!command.due) return 'Reminder, no time';
   const due = command.due;
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();

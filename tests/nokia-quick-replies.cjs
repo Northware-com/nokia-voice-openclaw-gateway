@@ -89,8 +89,8 @@ const items = h => h.nodes['overlay-list'].children.map(c => c.textContent);
   const h = harness(new Map(), BRIDGE, {config: {notesUrl: 'http://192.168.1.2:8790', notesToken: 'n'.repeat(40)}});
   h.key('*');
   h.key('0');
-  assert.ok(h.nodes.overlay.hidden);
-  assert.match(h.status(), /Notes: \* or Chat returns/);
+  assert.ok(h.nodes.overlay.hidden, 'no quick replies on the Notes screen');
+  assert.equal(h.requests.length, 1, '0 there starts a meeting recording instead (nokia-meeting.cjs)');
 }
 
 console.log('Nokia quick reply checks passed');

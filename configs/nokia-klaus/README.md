@@ -162,6 +162,20 @@ Quick replies wait while Klaus is still replying, queue like typed text when off
 
 Start a note with a keyword to route it (see [Voice commands](../nokia-notes/README.md#voice-commands)): `Task …`/`Opgave …` saves a tagged task, `Idea …`/`Idé …` an idea, and `Remind me at 3 pm to …`/`Husk … kl. 15` a reminder with its time. A chip at the top of the screen confirms the result for 4 s or until the next key (`✓ Task saved`, `✓ Reminder 15:00`; blue for tasks, purple for ideas, amber for reminders, green for notes) and the log reads `Task saved: Buy milk`.
 
+### Meeting mode
+
+`0` on the Notes screen records a meeting: the top bar turns red and the banner reads `● Meeting 12:34 · 12 ✓` (12 finished minutes saved). The recording is cut into one-minute Ogg segments (16 kbps, about 120 KB each); each segment is queued and uploaded as soon as it ends, so a crash or a dead battery loses at most the minute in progress. The next segment's recorder starts before the previous one stops, so nothing falls between them.
+
+| Key | Action |
+|---|---|
+| OK (`Stop`), Call or the right key | Stop: the last segment is saved, then the service is asked to write the note (`Meeting 42:10 saved. Plato writes the note.`) |
+| Back | Nothing is stopped or closed; the notice says the meeting is still recording |
+| Anything else | Ignored until the meeting stops |
+
+The service transcribes the segments with Freyr and writes one meeting note with a summary, decisions and action items ([details](../nokia-notes/README.md#meetings)); the notes log shows `Meeting 42:10` / `Meeting saved: transcript and summary follow in Plato's inbox` and a coral `✓ Meeting saved` chip. Segments queue like notes while offline (IndexedDB), in order, with the finish request last. If the app is closed mid-meeting, the next launch sends the saved parts and asks for the note (`A meeting was cut short; its 3 saved parts are being sent.`).
+
+While recording a meeting the app asks KaiOS for a CPU wake lock and does not stop when the screen turns off or the app is hidden. Whether Gecko 48 keeps the microphone running with the screen off is not verified yet (device check).
+
 Notes queue in order while the service is unreachable (for example away from home Wi-Fi); the queue (`klaus.notes.v1`) and clips (IndexedDB `note:<id>`) survive restarts and are sent with their original request id on launch, on reconnect, when opening Notes and every 30 s after a failure. Chat navigation keys are paused on the Notes screen.
 
 ## Behaviour

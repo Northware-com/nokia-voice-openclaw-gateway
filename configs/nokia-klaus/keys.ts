@@ -1,11 +1,11 @@
 // Pure key-map and presentation logic. No DOM access, so tests can call it directly.
 namespace Klaus {
-  export type Mode = "idle" | "recording" | "paused" | "typing" | "rename" | "menu" | "sessions" | "confirm" | "quick" | "help";
+  export type Mode = "idle" | "recording" | "paused" | "typing" | "rename" | "menu" | "sessions" | "confirm" | "quick" | "help" | "meeting";
 
   export type Action =
     "none" | "type" | "talk" | "menu" | "back" | "cancel" | "send" | "pause" | "resume" | "discard" | "clear" | "voice" |
     "close" | "select" | "up" | "down" | "prev" | "next" | "top" | "bottom" |
-    "pageUp" | "pageDown" | "read" | "autoread" | "sessions" | "new" | "archive" | "exitInput" | "notes" | "quick" | "pick" | "dial";
+    "pageUp" | "pageDown" | "read" | "autoread" | "sessions" | "new" | "archive" | "exitInput" | "notes" | "quick" | "pick" | "dial" | "stopMeeting";
 
   // Clips longer than this need a second Backspace before they are discarded.
   export var DISCARD_CONFIRM_MS = 3000;
@@ -41,6 +41,12 @@ namespace Klaus {
         if (key === "Backspace") return "discard";
         if (key === "SoftLeft" || key === "Escape") return "cancel";
         return "none";
+      case "meeting":
+        // A long recording: only a deliberate OK, Call or right key ends it; Back never
+        // closes the app mid-meeting.
+        if (key === "Enter" || key === " " || key === "Call" || key === "SoftRight") return "stopMeeting";
+        if (key === "Backspace" || key === "Escape") return "back";
+        return "none";
       case "typing":
       case "rename":
         if (key === "Enter" || key === "Call") return "send";
@@ -75,6 +81,7 @@ namespace Klaus {
   export function softkeysFor(mode: Mode, _elapsed: string, canResume?: boolean, notes?: boolean): string[] {
     switch (mode) {
       case "recording": return ["Delete", "Pause", "Send"];
+      case "meeting": return ["", "Stop", ""];
       case "paused": return ["Delete", canResume ? "Resume" : "Send", "Send"];
       case "typing": return ["Clear", "Send", "Voice"];
       case "rename": return ["Clear", "Save", "Cancel"];
@@ -94,11 +101,12 @@ namespace Klaus {
   export interface BannerState {
     mode: Mode; elapsed: string; discardArmed?: boolean; notes?: boolean;
     sending?: boolean; failed?: boolean; stalled?: boolean; queued?: number; connected?: boolean;
-    reading?: boolean;
+    reading?: boolean; parts?: number;
   }
 
   export function stateBanner(s: BannerState): Banner | null {
     var what = s.notes ? "note" : "clip";
+    if (s.mode === "meeting") return { kind: "rec", icon: "●", text: "Meeting " + s.elapsed + (s.parts ? " · " + s.parts + " ✓" : "") };
     if (s.mode === "recording" || s.mode === "paused") {
       if (s.discardArmed) return { kind: "discard", icon: "✕", text: "Delete " + s.elapsed + " " + what + "? Back again" };
       if (s.mode === "paused") return { kind: "paused", icon: "❚❚", text: "Paused " + s.elapsed };
@@ -205,9 +213,10 @@ namespace Klaus {
 
   // Empty-chat hint per state: what to do next, including while the first clip records.
   export function emptyHint(mode: Mode, notes: boolean): string {
+    if (mode === "meeting") return "Recording the meeting…\nSaved minute by minute.\nOK or Call stops.";
     if (mode === "recording") return notes ? "Listening…\nCall saves the note" : "Listening…\nCall sends · OK pauses";
     if (mode === "paused") return "Paused\nOK resumes · Call sends";
-    if (notes) return "No notes yet. OK to talk, left key to type. They go to Plato's inbox.";
+    if (notes) return "No notes yet. OK to talk, left key to type, 0 records a meeting. They go to Plato's inbox.";
     return "No messages yet.\nOK talk · Left type\n0 quick reply · # chats";
   }
 

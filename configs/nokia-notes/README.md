@@ -8,6 +8,8 @@ A small HTTP service that receives quick notes from the phone's Notes screen (`*
   - `201 {"file", "summary", "kind", "label", "due"?}` once written (see Voice commands); a resend with the same request id returns `200` with the same result and writes nothing (also across restarts, the last 2048 ids are kept in `stateFile`)
   - `422 no_speech` for an empty transcript, `503` when the transcriber is down (the phone keeps the note and retries), `400/401/413/415` for bad input
 - `GET /health` (authenticated) returns `{"ok": true}`
+- `POST /meetings/<uuid>/segments/<n>` (`audio/ogg`, n = 1..600, UUID `X-Request-Id`): one segment of a meeting recording, stored privately (`0600` in a `0700` directory) under `meetingsDir`; `201 {"stored": n}`, `200` for a resend
+- `POST /meetings/<uuid>/finish` (`application/json` `{"segments", "startedAt", "durationMs", "segmentMs"}`): `202 {"state": "processing", "kind": "meeting", "label": "Meeting saved"}`; the note is written in the background, and a later resend returns `200` with the saved note
 
 The phone shows the one-line `summary` (first sentence, at most 80 characters) as `Saved: ...`.
 
@@ -25,6 +27,20 @@ A keyword at the start of a voice or typed note routes it; the keyword is droppe
 Reminder times, in the service's local time zone: `at 3 pm`, `at 15:00`, `at 3` (English 1-7 without am/pm means the afternoon), `kl. 15`, `klokken 9.30`, `in 20 minutes`, `in an hour`, `in half an hour`, `om 10 minutter`, `om en halv time`, `tomorrow`/`i morgen`, `tonight`/`i aften` (20:00), weekdays (`on Friday`, `på fredag`; today's weekday means next week). A day without a time means 09:00; a time already passed today means tomorrow. Without any time the reminder is saved with no `due` and the chip says `Reminder, no time`. The label (`Reminder tomorrow 9:00`, `Reminder Fri 9:00`, `Reminder 3 Nov 9:00`) is fixed when the note is saved.
 
 The parser is deliberately small and literal (`commands.ts`); anything it does not recognise stays in the reminder text, and the original words are always kept in the body.
+
+## Meetings
+
+The phone's meeting mode (Notes screen, `0`) uploads a long recording as one-minute Ogg segments while it records, then sends `finish`. The service then:
+
+1. transcribes the segments in order through WhisperX (each transcript is cached next to its segment, so a transcriber outage only delays the note; the meeting is retried every `meetingRetryMs`, default 60 s, and resumed after a restart);
+2. writes `Nokia-Meeting-YYYY-MM-DD-HHMMSS.md` (named after the meeting start) with `type: meeting`, `tags: [meeting, nokia]`, duration and segment count, then `## Summary`, `## Decisions`, `## Action items` (`- [ ]` checkboxes) and `## Transcript` with a `[m:ss]` mark per segment. Silent segments read `(no speech)`, a segment the transcriber fails on five times reads `(could not be transcribed)`, and segments that never arrived are listed as missing;
+3. deletes the meeting audio.
+
+The summary is **extractive and local** (`meeting.ts`, `summary_method: extractive (local, no language model)`): up to three sentences whose content words recur most across the meeting, decisions picked by cue words (`decided`, `agreed`, `let's go with`, `besluttet`, `aftalt`, `vi vælger` …) and action items by commitment words (`will`, `I'll`, `needs to`, `by Friday`, `follow up`, `skal`, `husk`, `senest` …), plus the most repeated key words. It needs no account or network beyond Freyr, and it is literal: it picks sentences as said and can miss implied decisions.
+
+A better abstractive summary needs a language model. Options, none wired here because each needs an operator decision or a credential: a local model on a paired node through OpenClaw's node inference (Ollama, no new account, quality depends on the model and node), or an API model through the OpenClaw gateway's existing provider configuration. Either would replace only the `digest()` step; the transcript stays in the note.
+
+Optional config: `"meetingsDir"` (default `<stateFile directory>/meetings`) and `"meetingRetryMs"`.
 
 ## Note format
 

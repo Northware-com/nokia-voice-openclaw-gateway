@@ -40,6 +40,7 @@ body { display: flex; flex-direction: column; position: relative; }
 #chip.task { background: #6ec3ff; }
 #chip.idea { background: #d4bcff; }
 #chip.reminder { background: #ffc94d; }
+#chip.meeting { background: #ff9c86; }
 
 /* One-line notice, coloured by kind */
 /* Wraps to two lines rather than clipping a notice. */
