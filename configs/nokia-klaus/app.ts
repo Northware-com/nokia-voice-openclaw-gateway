@@ -39,6 +39,7 @@ namespace Klaus {
     var dots = 0;
     var stalled: { [id: string]: boolean } = Object.create(null); // poll timed out
     var sending: { [id: string]: boolean } = Object.create(null); // turn POST in flight
+    var resend: { [id: string]: { requestId: string; blob: Blob | null; text: string | null } } = Object.create(null);
     var sessionMedia: { [id: string]: string } = Object.create(null); // local recording URLs
 
     // Recording
@@ -55,6 +56,11 @@ namespace Klaus {
     var sendOnStop = true; // false: a stop is a pause fallback that keeps the clip
     var heldClip: Blob | null = null; // stopped-as-pause clip waiting for Send
     var discardArmed = false;
+
+    // Connection monitor: re-probe periodically and on "online" so queued turns resend.
+    var connState: ConnState = "NOT CONNECTED";
+    var probing = false;
+    var lastProbe = 0;
 
     function cur(): LocalSession { return sessions[active]; }
     function isActive(sess: LocalSession): boolean { return sess.id === cur().id; }
@@ -214,7 +220,7 @@ namespace Klaus {
     function submitTurn(sess: LocalSession, blob: Blob | null, text: string | null): void {
       if (!connected) {
         if (blob) { keepClip(sess, blob); say("Not connected. Clip saved locally; Menu › Retry last."); }
-        else { sess.lastText = text; say("Not connected. Message not sent."); }
+        else { sess.lastText = text; say("Not connected. Message not sent; Menu › Retry last."); }
         persist();
         return;
       }
@@ -226,6 +232,7 @@ namespace Klaus {
       sess.runId = null;
       sess.pendingSince = Date.now();
       sess.lastText = text;
+      sess.textPending = !blob;
       delete stalled[sess.id];
       if (blob) sess.uploadBlob = blob;
       sess.uploadPending = false;
@@ -236,17 +243,27 @@ namespace Klaus {
           delete sending[sess.id];
           if (sess.serverState === "pending" && sess.lastRequestId === requestId) sess.serverState = "idle";
           if (blob) keepClip(sess, blob);
-          if (isActive(sess)) say("Could not reach Klaus: " + err + ". Menu › Retry last.");
+          markOffline();
+          if (isActive(sess)) say("Could not reach Klaus: " + err + ". Queued; sends when back online.");
           afterStateChange(sess);
           return;
         }
         if (sess.lastRequestId !== requestId) { delete sending[sess.id]; return; } // cancelled meanwhile
+        postTurn(sess, requestId, blob, text);
+      });
+    }
+
+    // POST the turn. A network failure keeps the same X-Request-Id for an idempotent resend
+    // on reconnect (the bridge dedups by request id), while polling discovers the real state.
+    function postTurn(sess: LocalSession, requestId: string, blob: Blob | null, text: string | null): void {
+        sending[sess.id] = true;
         xhr(cfg, "POST", cfg.bridgeUrl + "/sessions/" + sess.serverId + "/turns", {
           contentType: blob ? "audio/ogg" : "application/json",
           requestId: requestId,
           body: blob ? blob : JSON.stringify({ text: text }),
           onSuccess: function (status: number, body: string): void {
             delete sending[sess.id];
+            delete resend[sess.id];
             if (status === 202 || status === 200) {
               try {
                 var r = JSON.parse(body);
@@ -254,6 +271,7 @@ namespace Klaus {
                 sess.serverState = (r.state || "pending") as SessionState;
               } catch (_e) { sess.runId = requestId; sess.serverState = "pending"; }
               if (blob) dropClip(sess);
+              sess.textPending = false;
               afterStateChange(sess);
               startPolling(sess);
             } else if (status === 401 || status === 403) {
@@ -271,18 +289,21 @@ namespace Klaus {
           },
           onError: function (error: string): void {
             delete sending[sess.id];
+            markOffline();
             if (sess.lastRequestId === requestId) {
+              resend[sess.id] = { requestId: requestId, blob: blob, text: text };
+              sess.textPending = false;
               sess.serverState = "uncertain";
               afterStateChange(sess);
               if (sess.serverId) startPolling(sess);
             }
-            if (isActive(sess)) say(error + ". Checking server state…");
+            if (isActive(sess)) say(error + ". Will resend when back online.");
           }
         });
-      });
     }
 
     function cancelSession(sess: LocalSession): void {
+      delete resend[sess.id];
       if (sess.serverState === "pending" || sess.serverState === "uncertain") {
         sess.serverState = "cancelling";
         if (connected && sess.serverId) {
@@ -355,6 +376,13 @@ namespace Klaus {
     function applyPoll(sess: LocalSession, text: string): void {
       var r: any;
       try { r = JSON.parse(text); } catch (_e) { return; }
+      // The bridge never saw a turn whose POST failed: resend it now that it is reachable.
+      var again = resend[sess.id];
+      if (again && sess.lastRequestId === again.requestId && r.runId !== again.requestId &&
+          !isBusyState((r.state || "idle") as SessionState)) {
+        if (!sending[sess.id]) postTurn(sess, again.requestId, again.blob, again.text);
+        return;
+      }
       var msgs = Array.isArray(r.messages) ? validateMessages(r.messages) : [];
       // Never let an older response shrink a completed transcript.
       if (msgs.length < sess.messages.length && sess.serverState === "complete") return;
@@ -376,6 +404,7 @@ namespace Klaus {
       refreshThinking();
       if (sess.serverState === "error") say("Klaus error: " + (r.error || "unknown") + ".");
       else if (sess.serverState === "cancelled") say("Request cancelled.");
+      else if (sess.serverState === "complete" && oldCount !== msgs.length) say(""); // stale notices end with the reply
     }
 
     function retryLast(): void {
@@ -396,6 +425,23 @@ namespace Klaus {
       }
       if (sess.lastText) { submitTurn(sess, null, sess.lastText); return; }
       say("Nothing to retry.");
+    }
+
+    // After reconnecting: resend queued clips/texts and resume stalled or idle polls.
+    function retryAllQueued(): number {
+      var n = 0;
+      sessions.forEach(function (sess: LocalSession): void {
+        var again = resend[sess.id];
+        if (again && sess.lastRequestId === again.requestId && sess.serverState === "uncertain" && !sending[sess.id]) {
+          postTurn(sess, again.requestId, again.blob, again.text); n++;
+        } else if (isBusyState(sess.serverState)) {
+          if (sess.serverId && !sess.pollTimer && !sess.pollXhr) { startPolling(sess); n++; }
+        } else if (sess.uploadPending) n++;
+        else if (sess.textPending && sess.lastText) { submitTurn(sess, null, sess.lastText); n++; }
+      });
+      retryAllClips();
+      if (n) refreshThinking();
+      return n;
     }
 
     function retryAllClips(): void {
@@ -778,9 +824,34 @@ namespace Klaus {
     setMode("idle");
     uiConn("NOT CONNECTED");
     updateView();
-    probeConnection(cfg, function (state: ConnState): void {
-      uiConn(state);
-      if (state === "CONNECTED") retryAllClips();
-    });
+    function markOffline(): void {
+      if (connState === "CONNECTED") { connState = "UNREACHABLE"; uiConn(connState); }
+    }
+
+    function probe(): void {
+      if (probing || !connected) return;
+      probing = true;
+      lastProbe = Date.now();
+      probeConnection(cfg, function (state: ConnState): void {
+        probing = false;
+        var was = connState;
+        connState = state;
+        uiConn(state);
+        if (state !== "CONNECTED") return;
+        var n = retryAllQueued();
+        if (was !== "CONNECTED" && was !== "NOT CONNECTED" && n) say("Back online. Sending queued messages…");
+      });
+    }
+
+    probe();
+    if (connected) {
+      // Fast re-probe while offline; slow keep-alive check while connected.
+      setInterval(function (): void {
+        var every = connState === "CONNECTED" ? 60000 : 15000;
+        if (!document.hidden && Date.now() - lastProbe >= every) probe();
+      }, 5000);
+      window.addEventListener("online", function (): void { probe(); });
+      window.addEventListener("offline", function (): void { markOffline(); say("Offline. Messages will queue."); });
+    }
   })();
 }

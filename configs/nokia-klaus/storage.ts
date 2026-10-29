@@ -22,6 +22,7 @@ namespace Klaus {
     pollXhr: XMLHttpRequest | null; // at-most-one concurrent poll XHR per session
     uploadPending: boolean;     // audio blob waiting for connection (persisted; blob lives in IndexedDB)
     uploadBlob: Blob | null;
+    textPending: boolean;       // typed turn not yet accepted by the bridge; resent on reconnect
   };
 
   export var STORAGE_KEY = "klaus.sessions.v2";
@@ -64,7 +65,7 @@ namespace Klaus {
       lastRequestId: null, cancelRequestId: null,
       archived: false, pendingSince: 0, lastText: null,
       pollTimer: null, pollXhr: null,
-      uploadPending: false, uploadBlob: null
+      uploadPending: false, uploadBlob: null, textPending: false
     };
   }
 
@@ -98,6 +99,7 @@ namespace Klaus {
     s.pendingSince = typeof item.pendingSince === "number" ? item.pendingSince : 0;
     s.lastText = typeof item.lastText === "string" ? item.lastText : null;
     s.uploadPending = item.uploadPending === true;
+    s.textPending = item.textPending === true && !!s.lastText;
     return s;
   }
 
@@ -146,7 +148,7 @@ namespace Klaus {
       messages: s.messages.slice(), runId: s.runId,
       lastRequestId: s.lastRequestId, cancelRequestId: s.cancelRequestId,
       archived: s.archived, pendingSince: s.pendingSince, lastText: s.lastText,
-      uploadPending: s.uploadPending
+      uploadPending: s.uploadPending, textPending: s.textPending
     };
   }
 

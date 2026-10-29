@@ -73,6 +73,7 @@ When Gecko's `MediaRecorder.pause()` is missing, Pause stops the recorder and ke
 - **Pending turns**: a thinking bubble shows `sending`/`thinking`/`cancelling` with an elapsed timer. Polling backs off from 1.5 s to 8 s and stops after `pollTimeoutMs` (default 180000) with "no reply yet"; Menu › Retry last resumes polling.
 - **Transcript**: new messages are appended without re-rendering; scroll position is preserved unless you were already at the bottom.
 - **Unsent clips**: offline or failed uploads are kept in IndexedDB and retried automatically after a successful connection probe, or with Menu › Retry last. Retry last also resends the last typed message after a failure.
+- **Network loss**: the connection is re-probed every 15 s while offline (60 s while connected) and on the system `online` event; a failed send or the `offline` event turns the dot red at once. Typed messages that never reached the bridge are queued (persisted as `textPending`) and resent on reconnect. A turn POST lost mid-flight is resent with the same `X-Request-Id`, which the bridge deduplicates, once the bridge is reachable again; that in-memory resend does not survive an app restart. Back cancels a queued resend.
 - **Cancel**: Back fires `POST .../cancel` with `{turnRequestId}`; polling continues until the server confirms.
 - **TTS**: replies are queued per session. Danish text (æøå or common Danish words) uses a `da-*` voice when installed, otherwise English.
 - **Persistence**: `localStorage` key `klaus.sessions.v2` (migrates `v1`), capped at 1 MiB by trimming oldest messages. Setting `klaus.autoread`.
@@ -97,9 +98,10 @@ node tests/nokia-audio.cjs      # audio lifecycle (also exports the fake-DOM har
 node tests/nokia-sessions.cjs   # session switch/create/reload
 node tests/nokia-connection.cjs # bridge, TTS, archive
 node tests/nokia-chat-ui.cjs    # softkeys, pause/resume/Call send, typing, menu, key map
+node tests/nokia-reliability.cjs # reconnect probes, queued text, idempotent resend
 ```
 
 ## Notes
 
 - Requires a privileged install (`type: "privileged"`, `permissions.systemXHR`); see `manifest.webapp`.
-- Device behaviour (Call key delivery, MediaRecorder.pause, IndexedDB, voice list, composer focus) is covered by offline tests only; verify on the handset.
+- Verified on a Nokia 6300 4G (KaiOS 2.5.4): Centre start/pause/resume (native `MediaRecorder.pause()`), Call send, SoftRight send while paused, Backspace discard with confirm, typed send, and Wi-Fi off/on queue and resend. IndexedDB clip survival across restarts and the voice list remain unverified on the handset.
