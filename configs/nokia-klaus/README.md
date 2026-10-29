@@ -134,7 +134,7 @@ When Gecko's `MediaRecorder.pause()` is missing, Pause stops the recorder and ke
 ```
 +------------------------------+
 | Today · Thu 29 Oct           |
-| Updated 14:02                |  freshness: Updated / Offline · from 14:05
+| Updated 14:02                |  freshness: Updated / Offline · 14:05
 | REMINDERS                    |
 | Yday  Pay the plumber        |  open and overdue (red time)
 | 9:30  Take the bins out      |  earlier today (dimmed)
@@ -259,4 +259,4 @@ node tests/nokia-polish.cjs      # menu digits, Keys screen, empty hint, version
 ## Notes
 
 - Requires a privileged install (`type: "privileged"`, `permissions.systemXHR`); see `manifest.webapp`.
-- Verified on a Nokia 6300 4G (KaiOS 2.5.4): Centre start/pause/resume (native `MediaRecorder.pause()`), Call send, SoftRight send while paused, Backspace discard with confirm, typed send, and Wi-Fi off/on queue and resend. Clip upload after a restart without signal is verified on the handset (0.3.3), as are Notes voice/typed/offline-queued notes (0.3.4), the pending first turn of a new chat and a paused-then-resumed clip (0.4.0), and the 0.5.0 state banner, softkey labels, press feedback, focus highlight and archive confirm; the voice list remains unverified. The 0.6.0 chat list, clip placeholders, quick replies, read-aloud stop, speed dial, numbered menu and Keys screen are unit tested and rendered at 240x320 in headless Chromium, not yet verified on the handset.
+- Verified on a Nokia 6300 4G (KaiOS 2.5.4): Centre start/pause/resume (native `MediaRecorder.pause()`), Call send, SoftRight send while paused, Backspace discard with confirm, typed send, and Wi-Fi off/on queue and resend. Clip upload after a restart without signal is verified on the handset (0.3.3), as are Notes voice/typed/offline-queued notes (0.3.4), the pending first turn of a new chat and a paused-then-resumed clip (0.4.0), and the 0.5.0 state banner, softkey labels, press feedback, focus highlight and archive confirm; the voice list remains unverified. The 0.6.0 chat list, clip placeholders, quick replies, read-aloud stop, speed dial, numbered menu and Keys screen are unit tested and rendered at 240x320 in headless Chromium, not yet verified on the handset. The 0.7.0 vibrations, voice-command chip, meeting mode, Today screen, night mode and large text are likewise unit tested and rendered headless only; on the handset still to check: vibration patterns, the chip and night palette in the Gecko font, a two-minute meeting across a segment cut, and whether a meeting keeps recording with the screen off (CPU wake lock).

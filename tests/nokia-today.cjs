@@ -122,7 +122,7 @@ function phone(body) {
   assert.equal(todayReqs(h).length, 2);
   assert.equal(rows(h)[0], 'fresh|Updating…');
   todayReqs(h)[1].req.onerror();
-  assert.equal(rows(h)[0], 'fresh warn|Offline · from 10m ago · OK retries');
+  assert.equal(rows(h)[0], 'fresh warn|Offline · 10m ago · OK retries');
   assert.ok(rows(h).includes('trow|15:00Call mum.'), 'the cached list stays');
   h.key('ArrowDown'); h.key('ArrowUp');
   assert.ok(!h.nodes.overlay.hidden, 'Up/Down scroll, they do not close');
@@ -137,7 +137,7 @@ function phone(body) {
   assert.equal(rows(again)[0], 'fresh|Updating…');
   assert.ok(rows(again).includes('trow past|15:00Call mum.'), 'cached, and 15:00 has passed by now');
   respond(todayReqs(again)[0], 500, {error: 'internal'});
-  assert.match(rows(again)[0], /^fresh warn\|Offline · from 14:05/);
+  assert.match(rows(again)[0], /^fresh warn\|Offline · 14:05/);
 
   // Without the notes service the chip is dimmed and 4 explains itself.
   const plain = harness(new Map(), BRIDGE);

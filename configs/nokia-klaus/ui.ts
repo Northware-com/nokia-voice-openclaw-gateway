@@ -67,10 +67,13 @@ namespace Klaus {
   }
 
   // One-line notice above the composer, coloured by kind; hidden when empty.
+  // A notice shrinks the chat: a reader at the newest message stays there.
   export function uiStatus(text: string): void {
+    var stick = atBottom();
     statusEl.textContent = text;
     statusEl.className = noticeKind(text);
     show(statusEl, !!text);
+    if (stick) uiScrollBottom();
   }
 
   // Confirmation chip at the top of the chat ("✓ Task saved", "✓ Reminder 15:00"), coloured

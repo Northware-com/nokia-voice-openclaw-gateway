@@ -44,13 +44,13 @@ namespace Klaus {
     return "Today · " + WEEKDAYS[d.getDay()] + " " + d.getDate() + " " + MONTH_NAMES[d.getMonth()];
   }
 
-  // Freshness line: "Updated just now", "Offline · from 14:05 · OK retries".
+  // Freshness line: "Updated just now", "Offline · 14:05 · OK retries" (one line, also in large text).
   export function todayFreshness(fetchedAt: number, now: number, failed: boolean, loading: boolean): string {
     if (!fetchedAt) return loading ? "Loading from Plato…" : "Plato unreachable · OK retries";
     var when = relTime(fetchedAt, now);
     var age = when === "now" ? "just now" : /m$/.test(when) ? when + " ago" : when;
     if (loading) return "Updating…";
-    return failed ? "Offline · from " + age + " · OK retries" : "Updated " + age;
+    return failed ? "Offline · " + age + " · OK retries" : "Updated " + age;
   }
 
   export function todaySections(d: TodayData, now: number): TodaySection[] {

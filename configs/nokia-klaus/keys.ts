@@ -240,7 +240,7 @@ namespace Klaus {
     "0  quick replies",
     "#  chats · 1-4 dial",
     "3  new · 7  archive",
-    "*  notes for Plato",
+    "*  notes (0 = meeting)",
     "Back  cancel / discard"
   ];
 

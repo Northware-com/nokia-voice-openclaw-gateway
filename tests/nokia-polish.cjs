@@ -1,4 +1,5 @@
-// nokia-polish.cjs — numbered menu, Keys help screen, state-aware empty-chat hint, 0.6.0 manifest.
+// nokia-polish.cjs — numbered menu, Keys help screen, state-aware empty-chat hint, notices that
+// keep the newest message in view, 0.7.0 manifest.
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -63,10 +64,24 @@ const menuRows = h => h.nodes['overlay-list'].children.filter(c => /\bitem\b/.te
   assert.equal(h.nodes['session-index'].textContent, '2/2', '1 creates a chat');
 }
 
+// ── A notice never hides the newest message ────────────────────────────────
+{
+  const h = harness();
+  const chat = h.nodes.chat;
+  chat.clientHeight = 50; // scrollHeight is 100 in the fake DOM, so the bottom is 50
+  chat.scrollTop = 48;
+  h.context.Klaus.uiStatus('Recording discarded.');
+  assert.equal(chat.scrollTop, 50, 'a reader at the bottom stays at the bottom when the notice appears');
+  chat.scrollTop = 10;
+  h.context.Klaus.uiStatus('Request cancelled.');
+  assert.equal(chat.scrollTop, 10, 'a reader scrolled up keeps their place');
+  assert.ok(h.context.Klaus.KEY_HELP.includes('*  notes (0 = meeting)'), 'the Keys screen mentions meeting mode');
+}
+
 // ── Manifest version ───────────────────────────────────────────────────────
 {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../configs/nokia-klaus/manifest.webapp'), 'utf8'));
-  assert.equal(manifest.version, '0.6.0');
+  assert.equal(manifest.version, '0.7.0');
 }
 
 console.log('Nokia polish (menu digits, Keys screen, empty hint, version) checks passed');
