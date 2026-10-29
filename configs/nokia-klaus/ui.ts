@@ -129,12 +129,70 @@ namespace Klaus {
     chatEl.scrollTop = Math.max(0, (chatEl.scrollHeight || 0) - (chatEl.clientHeight || 0));
   }
 
+  function vizSpan(cls: string, text: string): HTMLElement {
+    var el = document.createElement("span");
+    el.className = cls;
+    el.textContent = text;
+    return el;
+  }
+
+  // A reply whose lines all match the mini-syntax is drawn as bars, checks or a
+  // timeline; anything else renders as plain text unchanged.
+  function fillViz(viz: Viz, bubble: HTMLElement): void {
+    var box = document.createElement("div");
+    box.className = viz.kind === "bars" ? "viz vbars" : viz.kind === "checks" ? "viz vchecks" : "viz vtimes";
+    var i: number;
+    var line: HTMLElement;
+    if (viz.kind === "bars") {
+      for (i = 0; i < viz.items.length; i++) {
+        var bar = viz.items[i];
+        line = document.createElement("div");
+        line.className = "vline vbar";
+        line.appendChild(vizSpan("vlabel", clipLine(bar.label, VIZ_LABEL_CHARS)));
+        var track = document.createElement("div");
+        track.className = "vtrack";
+        var fill = document.createElement("div");
+        fill.className = "vfill";
+        fill.style.width = vizBarWidth(bar.value) + "%";
+        track.appendChild(fill);
+        line.appendChild(track);
+        line.appendChild(vizSpan("vval", vizBarText(bar)));
+        box.appendChild(line);
+      }
+    } else if (viz.kind === "checks") {
+      for (i = 0; i < viz.items.length; i++) {
+        var item = viz.items[i];
+        line = document.createElement("div");
+        line.className = "vline vchk " + (item.done ? "on" : "off");
+        line.appendChild(vizSpan("vmark", item.done ? "✓" : "-"));
+        line.appendChild(vizSpan("vtext", item.text ? clipLine(item.text, VIZ_TEXT_CHARS) : ""));
+        box.appendChild(line);
+      }
+    } else {
+      for (i = 0; i < viz.items.length; i++) {
+        var t = viz.items[i];
+        line = document.createElement("div");
+        line.className = "vline vtim";
+        line.appendChild(vizSpan("vtime", t.time));
+        line.appendChild(vizSpan("vtext", t.text ? clipLine(t.text, VIZ_TEXT_CHARS) : ""));
+        box.appendChild(line);
+      }
+    }
+    bubble.appendChild(box);
+  }
+
   function makeRow(msg: ApiMessage): HTMLElement {
-    var row = document.createElement("div");
+    var row: HTMLElement;
+    var viz = null;
+    if (msg.role === "assistant" && !msg.voice) {
+      try { viz = parseViz(msg.text); } catch (_e) { viz = null; }
+    }
+    row = document.createElement("div");
     row.className = "msg " + (msg.role === "user" ? "user" : "bot") + (msg.voice ? " voice" : "");
     var bubble = document.createElement("div");
     bubble.className = "bubble";
-    bubble.textContent = msg.text;
+    if (viz) fillViz(viz, bubble);
+    else bubble.textContent = msg.text;
     row.appendChild(bubble);
     return row;
   }

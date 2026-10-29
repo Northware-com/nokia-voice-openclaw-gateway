@@ -31,6 +31,22 @@ body { display: flex; flex-direction: column; position: relative; }
 .msg.reading { border-left-color: #1bfc9e; }
 .bot.reading .bubble { border: 2px solid #1bfc9e; }
 .voice .bubble { background: #0d2020; color: #b6f2da; border: 2px dashed #1bfc9e; font-style: italic; }
+
+/* Reply mini-visuals (bar charts, checklists, timelines): fixed single-line rows */
+.viz { margin: 2px 0; min-width: 182px; } /* fill the reply bubble (content 195px, border-box) */
+.vline { display: flex; align-items: center; font-size: 14px; line-height: 18px; height: 18px; white-space: nowrap; overflow: hidden; }
+.vbar .vlabel { flex: 0 0 58px; margin-right: 6px; color: #f0fff8; }
+.vbar .vtrack { flex: 1 1 auto; min-width: 0; height: 9px; background: #075555; border-radius: 2px; }
+.vbar .vfill { height: 100%; background: #1bfc9e; border-radius: 2px; }
+.vbar .vval { flex: 0 0 34px; margin-left: 6px; text-align: right; color: #8fd9bd; }
+.vchk .vmark { flex: 0 0 16px; font-weight: bold; }
+.vchk .vtext { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.vchk.on .vmark { color: #1bfc9e; }
+.vchk.on .vtext { color: #a9d6c6; text-decoration: none; }
+.vchk.off .vmark { color: #ffb000; }
+.vchk.off .vtext { color: #f0fff8; }
+.vtim .vtime { flex: 0 0 38px; margin-right: 6px; font-weight: bold; color: #ffb000; }
+.vtim .vtext { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 #thinking .bubble { color: #b6f2da; font-style: italic; }
 /* A compact visual key for the phases the existing bridge actually exposes. */
 #thinking .bubble:before { content: "Send > received > think > write  "; color: #8fd9bd; font: 13px sans-serif; }
@@ -131,6 +147,7 @@ body { display: flex; flex-direction: column; position: relative; }
 
 /* Large text (Menu › Large text): reading text grows, chrome stays put so the layout holds */
 body.large .bubble { font-size: 19px; line-height: 1.25; }
+body.large .viz .vline { font-size: 15px; line-height: 20px; height: 20px; }
 body.large .empty { font-size: 17px; }
 body.large #status { font-size: 16px; line-height: 20px; max-height: 44px; }
 body.large .item { font-size: 18px; }
@@ -154,6 +171,15 @@ body.night { background: #000; color: #e0b98f; }
 .night .msg.sel { background: #2a1808; border-left-color: #ffb36b; }
 .night .msg.sel .bubble { border-color: #ffb36b; }
 .night .msg.reading, .night .bot.reading .bubble { border-color: #ffb36b; }
+.night .vbar .vlabel { color: #e0b98f; }
+.night .vbar .vtrack { background: #2a1808; }
+.night .vbar .vfill { background: #ffb36b; }
+.night .vbar .vval { color: #c99a6b; }
+.night .vchk.on .vmark { color: #ffb36b; }
+.night .vchk.on .vtext { color: #8a6a4a; }
+.night .vchk.off .vmark { color: #ffb000; }
+.night .vchk.off .vtext, .night .vtim .vtext { color: #e0b98f; }
+.night .vtim .vtime { color: #ffb000; }
 .night .empty, .night #thinking .bubble { color: #b8926b; }
 .night #status { background: #0d0805; border-top-color: #4a2e14; color: #e0b98f; }
 .night #status.ok { color: #ffb36b; }

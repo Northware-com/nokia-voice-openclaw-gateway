@@ -6,7 +6,8 @@ const source = fs.readFileSync(require('node:path').join(__dirname, '../configs/
 // Minimal DOM element: enough of the API used by configs/nokia-klaus/ui.ts.
 class FakeElement {
   constructor(id) { this.id = id || ''; this.children = []; this.parentNode = null; this.attrs = {}; this.listeners = {};
-    this.className = ''; this._text = ''; this.scrollTop = 0; this.clientHeight = 200; this.offsetTop = 0; this.value = ''; }
+    this.className = ''; this._text = ''; this.scrollTop = 0; this.clientHeight = 200; this.offsetTop = 0; this.value = '';
+    this.style = {}; }
   get firstChild() { return this.children[0] || null; }
   get firstElementChild() { return this.children[0] || null; }
   get scrollHeight() { return 100 + this.children.length * 20; }

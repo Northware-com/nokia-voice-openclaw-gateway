@@ -125,6 +125,22 @@ While recording or paused:
 
 Clips are recorded as Ogg/Opus at 16 kbps (about 3.4 KB per second of speech); a recorder that rejects the bitrate option falls back to its default.
 
+## Reply visualisation
+
+Replies Klaus writes in a small line-based mini-syntax are drawn as compact visuals instead of plain text, so a list or ratio reads at one glance on 240x320:
+
+- **Bar chart** — every line is `Label 80%`, `Label: 80%`, `80% Label` or (without a percent sign) `Label: 80`. Up to six bars; the value text stays beside the track, bars fill left to right and cap at 100.
+- **Checklist** — every line is `- [ ]`, `- [x]`, `- [✓]` (or `*`/`1.` bullets) followed by the item. Up to eight items; done items get a mint ✓, open items an amber `-`.
+- **Timeline** — every line starts with `HH:MM` (optionally followed by text). Up to eight entries; the time sits in a fixed slot at left.
+
+Rules: the whole message must match (one unmatched line sends the entire reply back to plain text), at least two lines are needed, and only assistant text is parsed — your own messages, voice placeholders and everything else render exactly as before. Labels clip to 14 characters and item text to 26, so a visual never wraps a line at normal or large text. The app cannot choose the format; ask Klaus in plain words for a list or a chart and it uses these lines.
+
+```
+ Milk 80%                - [ ] Gate open      09:30 Plumber in
+ Eggs 40%                 - [x] Cells off     17:45 Bins out
+ (two bars, 80/40)        (checklist)         (timeline)
+```
+
 When Gecko's `MediaRecorder.pause()` is missing, Pause stops the recorder and keeps the clip; it is only uploaded on Send. The timer excludes paused time.
 
 ### Today
@@ -230,6 +246,7 @@ Notes queue in order while the service is unreachable (for example away from hom
 | File | Purpose |
 |---|---|
 | `keys.ts` | Pure key map, softkey labels, state banner, notice colours, chat-list rows and titles, focus/backoff/time/language helpers (unit tested) |
+| `viz.ts` | Reply mini-syntax parser: bar charts, checklists, timelines (unit tested) |
 | `storage.ts` | Session model, localStorage persistence, IndexedDB clip store |
 | `api.ts` | mozSystem XHR and connection probe |
 | `tts.ts` | Serialized speech queue, current item and change callback |
@@ -253,6 +270,7 @@ node tests/nokia-voice-transcript.cjs # clip placeholders, transcript first
 node tests/nokia-quick-replies.cjs # 0 + digit quick replies
 node tests/nokia-read-aloud.cjs  # 5 read/stop, reading banner and outline
 node tests/nokia-speed-dial.cjs  # chat list 1 Notes, 2 Klaus, 3 Last
+node tests/nokia-viz.cjs         # reply visualisation: bars, checks, timelines, plain-text fallback
 node tests/nokia-polish.cjs      # menu digits, Keys screen, empty hint, version
 ```
 
