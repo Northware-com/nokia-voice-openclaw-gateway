@@ -22,6 +22,8 @@ class FakeElement {
   get hidden() { return /\bhidden\b/.test(this.className); }
 }
 
+const PRIME_MS = 300;
+
 function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   const handlers = {};
   const requests = [];
@@ -32,6 +34,7 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   let nextUrl = 0;
   // Poll scheduling uses setTimeout; the thinking/recording tickers use setInterval.
   const pollTimers = {};
+  const primeTimers = {};
   const tickers = {};
   let nextTimer = 1;
   const utterances = [];
@@ -57,8 +60,9 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
     URL: {createObjectURL() {return `blob:test-${++nextUrl}`;}, revokeObjectURL(url) {revoked.push(url);}},
     Blob,
     crypto: {getRandomValues(arr) { for (let i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256); return arr; }},
-    setTimeout(fn, ms) { const id = nextTimer++; pollTimers[id] = {fn() { pollTimers[id].active = false; fn(); }, ms, active: true}; return id; },
-    clearTimeout(id) { if (pollTimers[id]) pollTimers[id].active = false; },
+    // The 300 ms microphone-prime timer is kept apart so poll tests only see polls.
+    setTimeout(fn, ms) { const id = nextTimer++; if (ms === PRIME_MS) { primeTimers[id] = {fn, active: true}; return id; } pollTimers[id] = {fn() { pollTimers[id].active = false; fn(); }, ms, active: true}; return id; },
+    clearTimeout(id) { if (pollTimers[id]) pollTimers[id].active = false; if (primeTimers[id]) primeTimers[id].active = false; },
     setInterval(fn, ms) { const id = nextTimer++; tickers[id] = {fn, ms, active: true}; return id; },
     clearInterval(id) { if (tickers[id]) tickers[id].active = false; },
     // Simulate Gecko 48 constructor: new XMLHttpRequest({mozSystem:true}) sets mozSystem=true.
@@ -95,9 +99,11 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   const thinking = () => (nodes.thinking.hidden ? '' : nodes.thinking.textContent);
   const softkeys = () => ['sk-left', 'sk-center', 'sk-right'].map(id => nodes[id].textContent);
   const conn = () => nodes.connection.getAttribute('data-state');
+  // Fire pending microphone-prime timers (app launch, after a recording, on visible).
+  const firePrime = () => Object.keys(primeTimers).forEach(id => { if (primeTimers[id].active) { primeTimers[id].active = false; primeTimers[id].fn(); } });
   const activePolls = () => Object.keys(pollTimers).filter(id => pollTimers[id].active);
   return {context, nodes, requests, xhrRequests, recorders, key, grant, handlers, storage, revoked, utterances,
-    intervals: pollTimers, pollTimers, tickers, clock, status, transcript, thinking, softkeys, conn, activePolls, composer,
+    intervals: pollTimers, pollTimers, tickers, clock, status, transcript, thinking, softkeys, conn, activePolls, composer, firePrime, primeTimers,
     get stopped() {return stopped;}};
 }
 {
@@ -144,6 +150,43 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   old.key('Enter'); old.grant();
   assert.equal(old.recorders.length, 1, 'A recorder that rejects options still records with defaults');
   assert.equal(old.recorders[0].state, 'recording');
+}
+{
+  // Launch primes the microphone; Centre then records without a new permission request.
+  const h = harness();
+  assert.equal(h.requests.length, 0, 'The microphone is not opened before the first paint');
+  h.firePrime();
+  assert.equal(h.requests.length, 1, 'Launch primes the microphone');
+  h.grant();
+  h.key('Enter');
+  assert.equal(h.requests.length, 1, 'Centre reuses the primed stream');
+  assert.equal(h.recorders.length, 1, 'Centre starts the recorder at once');
+  assert.equal(h.recorders[0].state, 'recording');
+  assert.equal(h.status(), '', 'No "Requesting microphone" notice when primed');
+  h.key('Call'); h.recorders[0].ondataavailable({data: new Blob(['a'])}); h.recorders[0].onstop();
+  assert.equal(h.stopped, 1, 'The used stream is stopped with its recording');
+  h.firePrime();
+  assert.equal(h.requests.length, 2, 'The microphone is primed again after a recording');
+}
+{
+  // Centre while the prime request is still pending waits for it instead of asking twice.
+  const h = harness();
+  h.firePrime();
+  h.key('Enter');
+  assert.equal(h.requests.length, 1, 'No second permission request while priming');
+  h.grant();
+  assert.equal(h.recorders.length, 1, 'The pending prime feeds the recording');
+}
+{
+  // Hiding the app releases the primed microphone; showing it primes again.
+  const h = harness();
+  h.firePrime(); h.grant();
+  h.context.document.hidden = true; h.handlers.visibilitychange();
+  assert.equal(h.stopped, 1, 'A hidden app does not hold the microphone');
+  h.firePrime();
+  assert.equal(h.requests.length, 1, 'No priming while hidden');
+  h.context.document.hidden = false; h.handlers.visibilitychange(); h.firePrime();
+  assert.equal(h.requests.length, 2, 'Visible again primes the microphone');
 }
 console.log('Nokia audio lifecycle checks passed');
 module.exports = {harness};
