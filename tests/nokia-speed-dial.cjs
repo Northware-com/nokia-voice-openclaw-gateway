@@ -13,19 +13,19 @@ const index = h => h.nodes['session-index'].textContent;
 // ── Pure key map ───────────────────────────────────────────────────────────
 {
   const K = harness().context.Klaus;
-  for (const d of '123') assert.equal(K.mapKey('sessions', d, true), 'dial', `chat list ${d}`);
-  for (const d of '4567890*') assert.equal(K.mapKey('sessions', d, true), 'none', `chat list ${d} is unused`);
+  for (const d of '1234') assert.equal(K.mapKey('sessions', d, true), 'dial', `chat list ${d}`);
+  for (const d of '567890*') assert.equal(K.mapKey('sessions', d, true), 'none', `chat list ${d} is unused`);
   assert.equal(K.mapKey('sessions', 'ArrowUp', true), 'up');
   assert.equal(K.mapKey('sessions', 'Enter', true), 'select');
   assert.equal(K.mapKey('menu', '1', true), 'pick', 'menu digits pick the numbered item, not speed dial');
-  assert.deepEqual(Array.from(K.SPEED_DIAL), ['Notes', 'Klaus', 'Last']);
+  assert.deepEqual(Array.from(K.SPEED_DIAL), ['Notes', 'Klaus', 'Last', 'Today']);
 }
 
 // ── Chips: dimmed when the target does not exist ───────────────────────────
 {
   const h = harness();
   h.key('#');
-  assert.deepEqual(chips(h), ['-1Notes', '+2Klaus', '-3Last'], 'no Notes in this build, no other chat yet');
+  assert.deepEqual(chips(h), ['-1Notes', '+2Klaus', '-3Last', '-4Today'], 'no Notes in this build, no other chat yet');
   h.key('1');
   assert.equal(h.status(), 'Notes are not configured in this build.');
   assert.ok(!h.nodes.overlay.hidden, 'the list stays open after a dimmed chip');
@@ -34,7 +34,7 @@ const index = h => h.nodes['session-index'].textContent;
   h.key('Backspace');
   const n = harness(new Map(), 'https://bridge.example.test/nokia/v1', {config: NOTES});
   n.key('3'); n.key('#');
-  assert.deepEqual(chips(n), ['+1Notes', '+2Klaus', '+3Last']);
+  assert.deepEqual(chips(n), ['+1Notes', '+2Klaus', '+3Last', '+4Today']);
 }
 
 // ── 1 opens Notes ──────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 // Pure key-map and presentation logic. No DOM access, so tests can call it directly.
 namespace Klaus {
-  export type Mode = "idle" | "recording" | "paused" | "typing" | "rename" | "menu" | "sessions" | "confirm" | "quick" | "help" | "meeting";
+  export type Mode = "idle" | "recording" | "paused" | "typing" | "rename" | "menu" | "sessions" | "confirm" | "quick" | "help" | "meeting" | "today";
 
   export type Action =
     "none" | "type" | "talk" | "menu" | "back" | "cancel" | "send" | "pause" | "resume" | "discard" | "clear" | "voice" |
@@ -41,6 +41,12 @@ namespace Klaus {
         if (key === "Backspace") return "discard";
         if (key === "SoftLeft" || key === "Escape") return "cancel";
         return "none";
+      case "today":
+        if (key === "Enter" || key === " ") return "select";
+        if (key === "ArrowUp") return "up";
+        if (key === "ArrowDown") return "down";
+        if (key === "SoftLeft" || key === "Backspace" || key === "Escape") return "close";
+        return "none";
       case "meeting":
         // A long recording: only a deliberate OK, Call or right key ends it; Back never
         // closes the app mid-meeting.
@@ -62,7 +68,7 @@ namespace Klaus {
         if (key === "Enter" || key === " " || key === "SoftLeft" || key === "Backspace" || key === "Escape") return "close";
         return "none";
       case "sessions":
-        if (key === "1" || key === "2" || key === "3") return "dial";
+        if (key === "1" || key === "2" || key === "3" || key === "4") return "dial";
         return LIST_KEYS[key] || "none";
       case "quick":
         if (/^[1-9]$/.test(key)) return "pick";
@@ -90,6 +96,7 @@ namespace Klaus {
       case "confirm": return ["Cancel", "Archive", ""];
       case "quick": return ["Close", "Send", ""];
       case "help": return ["Close", "OK", ""];
+      case "today": return ["Close", "Update", ""];
       default: return ["Type", "Talk", notes ? "Chat" : "Menu"];
     }
   }
@@ -231,7 +238,7 @@ namespace Klaus {
     "1/9 ends · 2/8 page",
     "5  read aloud / stop",
     "0  quick replies",
-    "#  chats · 1 2 3 dial",
+    "#  chats · 1-4 dial",
     "3  new · 7  archive",
     "*  notes for Plato",
     "Back  cancel / discard"
@@ -246,8 +253,8 @@ namespace Klaus {
   };
 
   // Speed dial on the chat list: 1 Notes for Plato, 2 a new Klaus chat (recording at once),
-  // 3 the previous chat. Labels are short enough for three chips across 240 px.
-  export var SPEED_DIAL = ["Notes", "Klaus", "Last"];
+  // 3 the previous chat, 4 Today. Labels are short enough for four chips across 240 px.
+  export var SPEED_DIAL = ["Notes", "Klaus", "Last", "Today"];
 
   // Quick replies on 1-9, in the language of Klaus's latest reply.
   var QUICK_EN = ["Yes", "No", "Thanks!", "Tell me more", "Shorter, please", "Explain it simply",

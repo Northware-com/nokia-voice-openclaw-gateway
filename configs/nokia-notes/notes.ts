@@ -7,6 +7,7 @@ import * as http from 'node:http';
 import * as path from 'node:path';
 import { classify, confirmLabel, type Command, type NoteKind } from './commands';
 import { renderMeeting, type Segment } from './meeting';
+import { readToday } from './today';
 
 export const AUDIO_LIMIT = 5 * 1024 * 1024;
 export const TEXT_LIMIT = 4000;
@@ -299,6 +300,7 @@ export function createNotesServer(cfg: NotesConfig, now: () => Date = () => new 
   async function handle(req: http.IncomingMessage): Promise<{ status: number; value: unknown }> {
     if (!tokenMatches(req.headers.authorization, cfg.token)) throw new HttpError(401, 'unauthorized');
     if (req.url === '/health' && req.method === 'GET') return { status: 200, value: { ok: true } };
+    if (req.url === '/today' && req.method === 'GET') return { status: 200, value: readToday(cfg.inboxDir, now()) };
     const meeting = /^\/meetings\/([0-9a-f-]{36})\/(?:segments\/(\d{1,4})|finish)$/i.exec(req.url || '');
     if (req.url !== '/notes' && !(meeting && UUID.test(meeting[1]))) throw new HttpError(404, 'not_found');
     if (req.method !== 'POST') throw new HttpError(405, 'method_not_allowed');

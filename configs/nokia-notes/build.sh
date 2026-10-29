@@ -8,5 +8,5 @@ TSC="${TSC:-$REPO/node_modules/typescript/bin/tsc}"
 node "$TSC" --strict --target ES2022 --module commonjs --moduleResolution node10 \
   --ignoreDeprecations 6.0 --lib ES2022,DOM --esModuleInterop --skipLibCheck \
   --typeRoots "$REPO/node_modules/@types" --types node --outDir "$ROOT/dist" \
-  "$ROOT/commands.ts" "$ROOT/meeting.ts" "$ROOT/notes.ts" "$ROOT/main.ts"
+  "$ROOT/commands.ts" "$ROOT/meeting.ts" "$ROOT/today.ts" "$ROOT/notes.ts" "$ROOT/main.ts"
 echo "Built $ROOT/dist"

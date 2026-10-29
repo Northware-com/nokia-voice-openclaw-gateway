@@ -98,7 +98,24 @@ body { display: flex; flex-direction: column; position: relative; }
 
 /* Speed dial chips above the chat list: 1 Notes, 2 Klaus, 3 Last */
 .dial { display: flex; padding: 4px 2px; background: #0d2020; border-bottom: 1px solid #075555; }
-.chip { flex: 1 1 0; font-size: 15px; line-height: 20px; white-space: nowrap; overflow: hidden; text-align: center; }
-.chip .key { display: inline-block; width: 18px; margin-right: 4px; text-align: center; font-weight: bold; color: #051111; background: #1bfc9e; border-radius: 3px; }
+.chip { flex: 1 1 0; font-size: 14px; line-height: 20px; white-space: nowrap; overflow: hidden; text-align: center; }
+.chip .key { display: inline-block; width: 16px; margin-right: 2px; text-align: center; font-weight: bold; color: #051111; background: #1bfc9e; border-radius: 3px; }
 .chip.off { color: #6f8f86; }
 .chip.off .key { background: #3d5650; }
+
+/* Today: freshness line, section heads, then rows of time + kind tag + text */
+.fresh { margin: 0; padding: 3px 8px; font-size: 14px; line-height: 18px; color: #8fd9bd; }
+.fresh.warn { color: #ffc94d; }
+.sec { padding: 4px 8px 2px; font: bold 14px sans-serif; color: #1bfc9e; text-transform: uppercase; border-top: 1px solid #0d2020; }
+.trow { display: flex; align-items: baseline; padding: 3px 8px; font-size: 15px; line-height: 19px; }
+.trow .tm { flex: 0 0 auto; min-width: 44px; margin-right: 6px; font-weight: bold; color: #ffc94d; }
+.trow .tag { flex: 0 0 auto; margin-right: 6px; padding: 0 4px; font-size: 13px; font-weight: bold; color: #051111; background: #8fd9bd; border-radius: 3px; }
+.trow .tx { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trow.k-task .tag { background: #6ec3ff; }
+.trow.k-idea .tag { background: #d4bcff; }
+.trow.k-meeting .tag { background: #ff9c86; }
+.trow.late .tm { color: #ff9c86; }
+.trow.past { color: #8aa9a0; }
+.trow.past .tm { color: #8aa9a0; }
+.trow.none { color: #8aa9a0; font-style: italic; }
+.trow:not(.past):not(.none) .tm + .tx { color: #e7fff5; }

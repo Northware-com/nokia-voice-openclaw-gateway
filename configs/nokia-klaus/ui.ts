@@ -282,6 +282,38 @@ namespace Klaus {
     show(overlayEl, true);
   }
 
+  // Today: a freshness line, then titled sections of rows (time, optional kind tag, text).
+  export function uiToday(title: string, freshness: string, sections: TodaySection[]): void {
+    overlayTitle.textContent = title;
+    var top = overlayList.scrollTop;
+    while (overlayList.firstChild) overlayList.removeChild(overlayList.firstChild);
+    var fresh = document.createElement("p");
+    fresh.className = "fresh" + (/Offline|unreachable/.test(freshness) ? " warn" : "");
+    fresh.textContent = freshness;
+    overlayList.appendChild(fresh);
+    for (var i = 0; i < sections.length; i++) {
+      var head = document.createElement("div");
+      head.className = "sec";
+      head.textContent = sections[i].title;
+      overlayList.appendChild(head);
+      for (var j = 0; j < sections[i].rows.length; j++) {
+        var r = sections[i].rows[j];
+        var row = document.createElement("div");
+        row.className = "trow" + (r.cls ? " " + r.cls : "");
+        if (r.time) row.appendChild(span("tm", r.time));
+        if (r.tag) row.appendChild(span("tag", r.tag));
+        row.appendChild(span("tx", r.text));
+        overlayList.appendChild(row);
+      }
+    }
+    overlayList.scrollTop = top;
+    show(overlayEl, true);
+  }
+
+  export function uiOverlayScroll(delta: number): void {
+    overlayList.scrollTop = Math.max(0, overlayList.scrollTop + delta);
+  }
+
   export function uiOverlayHide(): void { show(overlayEl, false); }
 
   export function uiBarRecording(on: boolean, notes?: boolean, paused?: boolean): void {

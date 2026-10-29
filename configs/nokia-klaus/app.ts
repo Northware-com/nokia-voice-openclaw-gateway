@@ -276,7 +276,7 @@ namespace Klaus {
       return best;
     }
 
-    // Chat list speed dial: 1 Notes, 2 new Klaus chat with the recorder running, 3 last chat.
+    // Chat list speed dial: 1 Notes, 2 new Klaus chat with the recorder running, 3 last chat, 4 Today.
     function speedDial(key: string): void {
       if (key === "1") {
         if (!notes) { say("Notes are not configured in this build."); return; }
@@ -284,6 +284,9 @@ namespace Klaus {
       } else if (key === "2") {
         closeOverlay();
         if (newSession()) startRecording();
+      } else if (key === "4") {
+        if (!notes) { say("Today needs the notes service in this build."); return; }
+        closeOverlay(); openToday();
       } else {
         var prev = previousChat();
         if (prev < 0) { say("No other chat yet. 2 starts one."); return; }
@@ -965,6 +968,54 @@ namespace Klaus {
 
     function closeOverlay(): void { uiOverlayHide(); setMode("idle"); }
 
+    // ── Today (chat list, 4) ────────────────────────────────────────────────
+    // The last good answer is cached so the screen opens at once, also offline.
+    var TODAY_KEY = "klaus.today.v1";
+    var today: { at: number; data: TodayData } | null = null;
+    var todayLoading = false, todayFailed = false;
+    try {
+      var cachedToday = JSON.parse(localStorage.getItem(TODAY_KEY) || "null");
+      var validToday = cachedToday && typeof cachedToday.at === "number" ? validateToday(cachedToday.data) : null;
+      if (validToday) today = { at: cachedToday.at, data: validToday };
+    } catch (_e) { /* no cache */ }
+
+    function renderToday(): void {
+      if (mode !== "today") return;
+      var now = Date.now();
+      var empty: TodayData = { date: "", reminders: [], undated: 0, latest: [] };
+      uiToday(todayTitle(now), todayFreshness(today ? today.at : 0, now, todayFailed, todayLoading),
+        today ? todaySections(today.data, now) : todayLoading ? [] : todaySections(empty, now));
+    }
+
+    function fetchToday(): void {
+      if (!cfg.notesUrl || !cfg.notesToken || todayLoading) return;
+      todayLoading = true;
+      renderToday();
+      var done = function (data: TodayData | null): void {
+        todayLoading = false;
+        todayFailed = !data;
+        if (data) {
+          today = { at: Date.now(), data: data };
+          try { localStorage.setItem(TODAY_KEY, JSON.stringify(today)); } catch (_e) { /* shown anyway */ }
+        }
+        renderToday();
+      };
+      xhr({ bridgeUrl: cfg.notesUrl, bridgeToken: cfg.notesToken }, "GET", cfg.notesUrl + "/today", {
+        onSuccess: function (status: number, text: string): void {
+          var data: TodayData | null = null;
+          if (status === 200) { try { data = validateToday(JSON.parse(text)); } catch (_e) { data = null; } }
+          done(data);
+        },
+        onError: function (): void { done(null); }
+      });
+    }
+
+    function openToday(): void {
+      setMode("today");
+      renderToday();
+      fetchToday();
+    }
+
     // ── Quick replies (0, then 1-9) ─────────────────────────────────────────
     var quickItems: string[] = [];
 
@@ -1009,11 +1060,12 @@ namespace Klaus {
         rows.push(sessionRow(s.title, s.messages, isBusyState(s.serverState), s.serverState === "error",
           !!(s.uploadPending || resend[s.id] || s.textPending), s.updatedAt, now));
       }
-      uiSessionList("Chats · " + rows.length, rows, listIndex, SPEED_DIAL, [!!notes, sessions.length < MAX_SESSIONS, previousChat() >= 0]);
+      uiSessionList("Chats · " + rows.length, rows, listIndex, SPEED_DIAL, [!!notes, sessions.length < MAX_SESSIONS, previousChat() >= 0, !!notes]);
     }
 
     function selectItem(): void {
       if (mode === "confirm") { closeOverlay(); archiveActive(); return; }
+      if (mode === "today") { fetchToday(); return; }
       if (mode === "quick") { sendQuick(listIndex); return; }
       if (mode === "sessions") {
         var target = listTargets[listIndex];
@@ -1126,8 +1178,8 @@ namespace Klaus {
         case "exitInput": exitInput(); break;
         case "close": closeOverlay(); break;
         case "select": selectItem(); break;
-        case "up": if (mode === "idle") focusMessage(moveFocus(selected, count, -1), true); else moveList(-1); break;
-        case "down": if (mode === "idle") focusMessage(moveFocus(selected, count, 1), true); else moveList(1); break;
+        case "up": if (mode === "today") uiOverlayScroll(-40); else if (mode === "idle") focusMessage(moveFocus(selected, count, -1), true); else moveList(-1); break;
+        case "down": if (mode === "today") uiOverlayScroll(40); else if (mode === "idle") focusMessage(moveFocus(selected, count, 1), true); else moveList(1); break;
         case "prev": switchSession(-1); break;
         case "next": switchSession(1); break;
         case "top": focusMessage(count ? 0 : -1, true); break;

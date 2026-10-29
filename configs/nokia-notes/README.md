@@ -8,6 +8,7 @@ A small HTTP service that receives quick notes from the phone's Notes screen (`*
   - `201 {"file", "summary", "kind", "label", "due"?}` once written (see Voice commands); a resend with the same request id returns `200` with the same result and writes nothing (also across restarts, the last 2048 ids are kept in `stateFile`)
   - `422 no_speech` for an empty transcript, `503` when the transcriber is down (the phone keeps the note and retries), `400/401/413/415` for bad input
 - `GET /health` (authenticated) returns `{"ok": true}`
+- `GET /today` (authenticated, read-only): `{"date", "reminders": [{"due", "text", "overdue"}], "undated", "latest": [{"kind", "summary", "created"}], "calendar": null, "mail": null}` from the front matter of the `Nokia-*` files in `inboxDir` (newest 400 files): open reminders due today or overdue, the count of open reminders without a time, and the six newest notes, tasks, ideas and meetings. Calendar and mail are always `null` (not connected)
 - `POST /meetings/<uuid>/segments/<n>` (`audio/ogg`, n = 1..600, UUID `X-Request-Id`): one segment of a meeting recording, stored privately (`0600` in a `0700` directory) under `meetingsDir`; `201 {"stored": n}`, `200` for a resend
 - `POST /meetings/<uuid>/finish` (`application/json` `{"segments", "startedAt", "durationMs", "segmentMs"}`): `202 {"state": "processing", "kind": "meeting", "label": "Meeting saved"}`; the note is written in the background, and a later resend returns `200` with the saved note
 

@@ -47,7 +47,7 @@ The archive confirm explains itself on screen.
 ```
 +------------------------------+
 | Chats · 6                    |
-| [1] Notes  [2] Klaus [3] Last|  speed dial (dimmed when unavailable)
+|[1]Notes [2]Klaus [3]Last [4]Today| speed dial (dimmed when unavailable)
 |[What's on the sho…       now]|  title + time (now, 5m, 14:05, Yday, Mon, 12 Oct)
 |[Milk, eggs, coffee and so…  ]|  preview: latest message, "You: …" for your own
 | Remind me what the p…    40m |
@@ -66,6 +66,7 @@ Speed dial on the chat list:
 | 1 | Notes for Plato (dimmed unless the build has `NOKIA_NOTES_URL`) |
 | 2 | A new Klaus chat with the recorder already running: `#` `2`, speak, Call |
 | 3 | The last chat you used before this one (archived chats are skipped) |
+| 4 | Today (dimmed unless the build has `NOKIA_NOTES_URL`), see below |
 
 Chats named `Conversation N` take an automatic title from the first thing you said (typed, or the transcript when the bridge returns one), else from the first reply when the chat opened with an untranscribed clip; Menu › Rename fixes a title by hand and stops automatic titles for that chat.
 
@@ -82,8 +83,10 @@ Softkey labels per state:
 | Rename | Clear | Save | Cancel |
 | Menu / chat list | Close | Select / Open | |
 | Keys screen | Close | OK | |
+| Today | Close | Update | |
+| Meeting | | Stop | (Stop) |
 
-On the chat list, 1/2/3 are speed dial (see Chat list).
+On the chat list, 1-4 are speed dial (see Chat list).
 | Archive confirm | Cancel | Archive | |
 | Quick replies | Close | Send | |
 
@@ -123,6 +126,29 @@ While recording or paused:
 Clips are recorded as Ogg/Opus at 16 kbps (about 3.4 KB per second of speech); a recorder that rejects the bitrate option falls back to its default.
 
 When Gecko's `MediaRecorder.pause()` is missing, Pause stops the recorder and keeps the clip; it is only uploaded on Send. The timer excludes paused time.
+
+### Today
+
+`#` `4` opens **Today** (needs `NOKIA_NOTES_URL`), read from the notes service (`GET /today`, notes token):
+
+```
++------------------------------+
+| Today · Thu 29 Oct           |
+| Updated 14:02                |  freshness: Updated / Offline · from 14:05
+| REMINDERS                    |
+| Yday  Pay the plumber        |  open and overdue (red time)
+| 9:30  Take the bins out      |  earlier today (dimmed)
+| 15:00 Call mum               |
+| +1 without a time            |
+| LATEST IN PLATO'S INBOX      |
+| 13:00 [Idea] Pub quiz app…   |  six newest notes, tasks, ideas, meetings
+| CALENDAR & MAIL              |
+| Not connected yet            |
+| Close       UPDATE           |
++------------------------------+
+```
+
+Up/Down scroll, OK updates, Back or the left key closes. The last answer is kept (`klaus.today.v1`) so the screen opens at once, also away from home Wi-Fi, with the freshness line saying how old it is. Reminders are the `Nokia-Reminder-*` files written by voice commands; a reminder leaves Today when its file is moved out of the inbox or its `status` is no longer `open`. Calendar and mail are a placeholder: they need credentials the notes service does not have.
 
 ## Vibration
 
