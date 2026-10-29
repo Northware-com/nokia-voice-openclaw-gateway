@@ -32,6 +32,8 @@ body { display: flex; flex-direction: column; position: relative; }
 .bot.reading .bubble { border: 2px solid #1bfc9e; }
 .voice .bubble { background: #0d2020; color: #b6f2da; border: 2px dashed #1bfc9e; font-style: italic; }
 #thinking .bubble { color: #b6f2da; font-style: italic; }
+/* A compact visual key for the phases the existing bridge actually exposes. */
+#thinking .bubble:before { content: "Send > received > think > write  "; color: #8fd9bd; font: 13px sans-serif; }
 #echo .bubble { color: #051111; opacity: 0.75; }
 .empty { margin: 24px 12px 0; color: #a9d6c6; font-size: 15px; line-height: 1.5; text-align: center; white-space: pre-line; }
 

@@ -48,6 +48,9 @@ namespace Klaus {
     var dots = 0;
     var stalled: { [id: string]: boolean } = Object.create(null); // poll timed out
     var sending: { [id: string]: boolean } = Object.create(null); // turn POST in flight
+    // The bridge exposes final state plus complete messages, not tool events or token
+    // streaming. Keep this deliberately limited to honest transport phases.
+    var progress: { [id: string]: string } = Object.create(null);
     var resend: { [id: string]: { requestId: string; blob: Blob | null; text: string | null; audio: boolean } } = Object.create(null);
     var sessionMedia: { [id: string]: string } = Object.create(null); // local recording URLs
 
@@ -185,8 +188,9 @@ namespace Klaus {
       }
       if (!isBusyState(sess.serverState)) return null;
       if (stalled[sess.id]) return "no reply yet · Menu › Retry";
-      var word = sess.serverState === "cancelling" ? "cancelling" : sending[sess.id] ? "sending" : "thinking";
+      var word = sess.serverState === "cancelling" ? "cancelling" : progress[sess.id] || (sending[sess.id] ? "sending" : "thinking");
       var trail = ["·  ", "·· ", "···"][dots % 3];
+      if (word === "cancelling") return word + " " + trail + " " + formatElapsed(Date.now() - (sess.pendingSince || Date.now()));
       return word + " " + trail + " " + formatElapsed(Date.now() - (sess.pendingSince || Date.now()));
     }
 
@@ -398,6 +402,7 @@ namespace Klaus {
       if (blob) sess.uploadBlob = blob;
       sess.uploadPending = false;
       sending[sess.id] = true;
+      progress[sess.id] = "sending";
       afterStateChange(sess);
       ensureServerSession(sess, function (ok: boolean, err: string): void {
         if (!ok) {
@@ -432,6 +437,9 @@ namespace Klaus {
                 sess.serverState = (r.state || "pending") as SessionState;
               } catch (_e) { sess.runId = requestId; sess.serverState = "pending"; }
               if (blob) dropClip(sess);
+              // The bridge acknowledges receipt but does not expose a stream. Its next
+              // observable state is the normal polling/thinking phase.
+              progress[sess.id] = "thinking";
               clearOutbox(sess);
               sess.textPending = false;
               afterStateChange(sess);
@@ -556,6 +564,8 @@ namespace Klaus {
       if (msgs.length < sess.messages.length && sess.serverState === "complete") return;
       var oldCount = sess.messages.length;
       sess.messages = msgs;
+      if (msgs.length > oldCount && isBusyState(sess.serverState)) progress[sess.id] = "writing";
+      else if (isBusyState(sess.serverState) && !sending[sess.id]) progress[sess.id] = "thinking";
       if (msgs.length !== oldCount) touch(sess);
       retitle(sess);
       if (r.runId) sess.runId = r.runId;
