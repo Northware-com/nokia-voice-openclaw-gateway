@@ -34,7 +34,7 @@ function record(h) {
   assert.equal(K.mapKey('idle', 'SoftRight', true), 'menu');
   assert.equal(K.mapKey('idle', 'Enter', true), 'talk');
   for (const [key, action] of [['4', 'prev'], ['6', 'next'], ['ArrowLeft', 'prev'], ['ArrowRight', 'next'],
-    ['1', 'top'], ['9', 'bottom'], ['2', 'pageUp'], ['8', 'pageDown'], ['5', 'read'], ['0', 'autoread'], ['#', 'sessions']]) {
+    ['1', 'top'], ['9', 'bottom'], ['2', 'pageUp'], ['8', 'pageDown'], ['5', 'read'], ['0', 'quick'], ['#', 'sessions']]) {
     assert.equal(K.mapKey('idle', key, true), action, `idle ${key}`);
   }
   assert.equal(K.mapKey('typing', '3', false), 'none', 'digits type into the composer');
@@ -269,7 +269,7 @@ function pausable(rec) {
 // ── Auto-read toggle and Danish TTS ────────────────────────────────────────
 {
   const h = harness(new Map(), BRIDGE, {voices: [{lang: 'en-US'}, {lang: 'da-DK'}]});
-  h.key('0');
+  h.key('SoftRight'); for (let i = 0; i < 4; i++) h.key('ArrowDown'); h.key('Enter');
   assert.match(h.status(), /Read aloud off/);
   connectedTurn(h, 'srv-quiet', () => record(h));
   firePoll(h);

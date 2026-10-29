@@ -1,11 +1,11 @@
 // Pure key-map and presentation logic. No DOM access, so tests can call it directly.
 namespace Klaus {
-  export type Mode = "idle" | "recording" | "paused" | "typing" | "rename" | "menu" | "sessions" | "confirm";
+  export type Mode = "idle" | "recording" | "paused" | "typing" | "rename" | "menu" | "sessions" | "confirm" | "quick";
 
   export type Action =
     "none" | "type" | "talk" | "menu" | "back" | "cancel" | "send" | "pause" | "resume" | "discard" | "clear" | "voice" |
     "close" | "select" | "up" | "down" | "prev" | "next" | "top" | "bottom" |
-    "pageUp" | "pageDown" | "read" | "autoread" | "sessions" | "new" | "archive" | "exitInput" | "notes";
+    "pageUp" | "pageDown" | "read" | "autoread" | "sessions" | "new" | "archive" | "exitInput" | "notes" | "quick" | "pick";
 
   // Clips longer than this need a second Backspace before they are discarded.
   export var DISCARD_CONFIRM_MS = 3000;
@@ -15,7 +15,7 @@ namespace Klaus {
     Backspace: "back", Escape: "back",
     ArrowUp: "up", ArrowDown: "down", ArrowLeft: "prev", ArrowRight: "next",
     "4": "prev", "6": "next", "1": "top", "9": "bottom", "2": "pageUp", "8": "pageDown",
-    "5": "read", r: "read", R: "read", "0": "autoread", "#": "sessions", "3": "new", "7": "archive", "*": "notes"
+    "5": "read", r: "read", R: "read", "0": "quick", "#": "sessions", "3": "new", "7": "archive", "*": "notes"
   };
 
   var LIST_KEYS: { [key: string]: Action } = {
@@ -52,6 +52,9 @@ namespace Klaus {
       case "menu":
       case "sessions":
         return LIST_KEYS[key] || "none";
+      case "quick":
+        if (/^[1-9]$/.test(key)) return "pick";
+        return LIST_KEYS[key] || "none";
       case "confirm":
         if (key === "Enter" || key === " " || key === "7") return "select";
         if (key === "SoftLeft" || key === "Backspace" || key === "Escape") return "close";
@@ -72,6 +75,7 @@ namespace Klaus {
       case "menu": return ["Close", "Select", ""];
       case "sessions": return ["Close", "Open", ""];
       case "confirm": return ["Cancel", "Archive", ""];
+      case "quick": return ["Close", "Send", ""];
       default: return ["Type", "Talk", notes ? "Chat" : "Menu"];
     }
   }
@@ -181,6 +185,15 @@ namespace Klaus {
       : (last.role === "user" ? "You: " : "") + clipLine(last.text, 60);
     // Busy chats say so in the preview; a leading "…" would read as a clipped title.
     return { kind: kind, title: sessionListLabel(title, false, failed, queued), time: relTime(updatedAt, now), preview: preview };
+  }
+
+  // Quick replies on 1-9, in the language of Klaus's latest reply.
+  var QUICK_EN = ["Yes", "No", "Thanks!", "Tell me more", "Shorter, please", "Explain it simply",
+    "What should I do next?", "Remind me later", "Stop, that's all"];
+  var QUICK_DA = ["Ja", "Nej", "Tak!", "Fortæl mere", "Kortere, tak", "Forklar det enkelt",
+    "Hvad skal jeg gøre nu?", "Mind mig om det senere", "Stop, det var det"];
+  export function quickReplies(lastReply: string): string[] {
+    return (detectLang(lastReply || "") === "da" ? QUICK_DA : QUICK_EN).slice();
   }
 
   // Message focus: -1 means "live" (nothing selected, pinned to newest).

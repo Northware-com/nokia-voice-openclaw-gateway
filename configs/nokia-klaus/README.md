@@ -72,6 +72,7 @@ Softkey labels per state:
 | Rename | Clear | Save | Cancel |
 | Menu / chat list | Close | Select / Open | |
 | Archive confirm | Cancel | Archive | |
+| Quick replies | Close | Send | |
 
 The recording timer is in the state banner, so both clip states share Delete (left) and Send (right).
 
@@ -87,7 +88,7 @@ Idle keys:
 | 1 / 9 | Oldest / newest message |
 | 2 / 8 | Page up / down |
 | 5 | Read the focused message aloud (latest reply if none); a focused clip placeholder, or a chat with no reply, plays your last clip; again stops playback |
-| 0 | Toggle auto read-aloud for new replies (persisted) |
+| 0 | Quick replies: 1-9 sends one at once (see below) |
 | # | Chat list (most recent first, with previews) |
 | 3 | New chat |
 | 7 | Archive chat (confirm with OK or 7, Back cancels) |
@@ -109,6 +110,24 @@ While recording or paused:
 Clips are recorded as Ogg/Opus at 16 kbps (about 3.4 KB per second of speech); a recorder that rejects the bitrate option falls back to its default.
 
 When Gecko's `MediaRecorder.pause()` is missing, Pause stops the recorder and keeps the clip; it is only uploaded on Send. The timer excludes paused time.
+
+## Quick replies
+
+`0` opens nine canned answers; a digit sends one at once as a typed turn (Up/Down + OK also works, Back closes without sending). The list follows the language of Klaus's latest reply:
+
+| Key | English | Danish |
+|---|---|---|
+| 1 | Yes | Ja |
+| 2 | No | Nej |
+| 3 | Thanks! | Tak! |
+| 4 | Tell me more | Fortæl mere |
+| 5 | Shorter, please | Kortere, tak |
+| 6 | Explain it simply | Forklar det enkelt |
+| 7 | What should I do next? | Hvad skal jeg gøre nu? |
+| 8 | Remind me later | Mind mig om det senere |
+| 9 | Stop, that's all | Stop, det var det |
+
+Quick replies wait while Klaus is still replying, queue like typed text when offline, and are not offered on the Notes screen. Auto read-aloud (previously `0`) is toggled with Menu › Read aloud.
 
 ## Notes for Plato
 
@@ -154,6 +173,7 @@ node tests/nokia-reliability.cjs # reconnect probes, queued text, idempotent res
 node tests/nokia-quick-notes.cjs # Notes screen, notes queue, restart resend
 node tests/nokia-chat-list.cjs   # chat list rows, automatic titles, times, recency
 node tests/nokia-voice-transcript.cjs # clip placeholders, transcript first
+node tests/nokia-quick-replies.cjs # 0 + digit quick replies
 ```
 
 ## Notes

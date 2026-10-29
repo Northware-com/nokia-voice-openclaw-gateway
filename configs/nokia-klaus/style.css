@@ -79,3 +79,8 @@ body { display: flex; flex-direction: column; position: relative; }
 .chat.failed .pv { color: #ff9c86; }
 .chat.queued .pv { color: #ffc94d; }
 .chat.sel .tm, .chat.sel .pv { color: #063b2a; }
+
+/* Numbered lists (quick replies): nine compact rows fit without scrolling */
+.item.num { padding: 3px 8px; line-height: 20px; border-bottom: 0; }
+.num .key { display: inline-block; width: 20px; margin-right: 6px; text-align: center; font-weight: bold; color: #051111; background: #1bfc9e; border-radius: 3px; }
+.num.sel .key { color: #1bfc9e; background: #051111; }

@@ -830,11 +830,39 @@ namespace Klaus {
 
     function closeOverlay(): void { uiOverlayHide(); setMode("idle"); }
 
+    // ── Quick replies (0, then 1-9) ─────────────────────────────────────────
+    var quickItems: string[] = [];
+
+    function lastReply(sess: LocalSession): string {
+      for (var i = sess.messages.length - 1; i >= 0; i--) if (sess.messages[i].role === "assistant") return sess.messages[i].text;
+      return "";
+    }
+
+    function openQuick(): void {
+      var sess = cur();
+      if (isBusyState(sess.serverState)) { say("Klaus is still replying. Back cancels."); return; }
+      quickItems = quickReplies(lastReply(sess));
+      listIndex = 0;
+      setMode("quick");
+      renderQuick();
+    }
+
+    function renderQuick(): void {
+      uiOverlay("Quick reply · 1-9 sends", quickItems, listIndex, undefined, true);
+    }
+
+    function sendQuick(index: number): void {
+      var text = quickItems[index];
+      closeOverlay();
+      if (text) submitTurn(cur(), null, text, true);
+    }
+
     function moveList(delta: number): void {
-      var count = mode === "menu" ? menuItems().length : listTargets.length;
+      var count = mode === "menu" ? menuItems().length : mode === "quick" ? quickItems.length : listTargets.length;
       if (!count) return;
       listIndex = (listIndex + delta + count) % count;
       if (mode === "menu") uiOverlay("Menu", menuItems(), listIndex);
+      else if (mode === "quick") renderQuick();
       else renderSessionList();
     }
 
@@ -851,6 +879,7 @@ namespace Klaus {
 
     function selectItem(): void {
       if (mode === "confirm") { closeOverlay(); archiveActive(); return; }
+      if (mode === "quick") { sendQuick(listIndex); return; }
       if (mode === "sessions") {
         var target = listTargets[listIndex];
         closeOverlay();
@@ -927,11 +956,11 @@ namespace Klaus {
       return event.key && event.key !== "Unidentified" ? event.key : KEYCODES[(event as any).keyCode] || "";
     }
 
-    function run(action: Action): void {
+    function run(action: Action, key: string): void {
       var count = cur().messages.length;
       if (notesMode) {
         if (action === "menu") { toggleNotes(); return; }
-        if (action === "prev" || action === "next" || action === "sessions" || action === "new" || action === "archive") {
+        if (action === "prev" || action === "next" || action === "sessions" || action === "new" || action === "archive" || action === "quick") {
           say("Notes: * or Chat returns to the chats."); return;
         }
       }
@@ -963,6 +992,8 @@ namespace Klaus {
         case "new": newSession(); break;
         case "archive": openConfirm(); break;
         case "notes": toggleNotes(); break;
+        case "quick": openQuick(); break;
+        case "pick": sendQuick(Number(key) - 1); break;
       }
     }
 
@@ -989,7 +1020,7 @@ namespace Klaus {
       }
       event.preventDefault();
       say("");
-      run(action);
+      run(action, key);
     });
 
     document.addEventListener("keyup", function (): void { uiKeyUp(); });

@@ -184,7 +184,8 @@ namespace Klaus {
   }
 
   // note: plain explanatory text under the title (confirm screens), never selectable.
-  export function uiOverlay(title: string, items: string[], selected: number, note?: string): void {
+  // numbered: compact rows led by their digit shortcut (1-9).
+  export function uiOverlay(title: string, items: string[], selected: number, note?: string, numbered?: boolean): void {
     overlayTitle.textContent = title;
     while (overlayList.firstChild) overlayList.removeChild(overlayList.firstChild);
     if (note) {
@@ -195,8 +196,11 @@ namespace Klaus {
     }
     for (var i = 0; i < items.length; i++) {
       var row = document.createElement("div");
-      row.className = i === selected ? "item sel" : "item";
-      row.textContent = items[i];
+      row.className = (numbered ? "item num" : "item") + (i === selected ? " sel" : "");
+      if (numbered) {
+        row.appendChild(span("key", String(i + 1)));
+        row.appendChild(span("label", items[i]));
+      } else row.textContent = items[i];
       overlayList.appendChild(row);
       if (i === selected) { try { (row as any).scrollIntoView(false); } catch (_e) { /* old engines */ } }
     }
