@@ -63,6 +63,7 @@ namespace Klaus {
     var stream: MediaStream | null = null;
     var analyser: AnalyserNode | null = null;
     var meterTimer: any = null;
+    var peakLevel: number | null = null; // null: no meter; else peak uiLevel this clip
     var recorder: MediaRecorder | null = null;
     var chunks: Blob[] = [];
     var generation = 0;
@@ -713,6 +714,7 @@ namespace Klaus {
         var audio = new Ctor();
         var meter = audio.createAnalyser(); meter.fftSize = 32;
         analyser = meter;
+        peakLevel = 0;
         audio.createMediaStreamSource(value).connect(meter);
         var data = new Uint8Array(meter.frequencyBinCount);
         meterTimer = setInterval(function (): void {
@@ -720,7 +722,9 @@ namespace Klaus {
           meter.getByteTimeDomainData(data);
           var sum = 0;
           for (var i = 0; i < data.length; i++) sum += Math.abs(data[i] - 128);
-          uiLevel(Math.min(1, (sum / data.length) / 38));
+          var level = Math.min(1, (sum / data.length) / 38);
+          if (peakLevel === null || level > peakLevel) peakLevel = level;
+          uiLevel(level);
         }, 120);
       } catch (_e) { uiLevel(null); }
     }
@@ -793,6 +797,7 @@ namespace Klaus {
       player.pause();
       busy = true; chunks = []; stopRequested = false;
       sendOnStop = true; canResume = false; heldClip = null; recAccum = 0; discardArmed = false;
+      peakLevel = null;
       var gen = ++generation;
       ttsInterrupt(); // never transcribe Klaus's own voice
       recStart = Date.now();
@@ -879,6 +884,14 @@ namespace Klaus {
     }
 
     function deliverClip(sess: LocalSession, blob: Blob, ms: number): void {
+      // When the meter ran, refuse a silent clip so we never ask the STT pipeline to
+      // analyse room hiss. Builds without WebAudio keep the old send-everything path.
+      if (peakLevel !== null && peakLevel < 0.2) {
+        peakLevel = null;
+        say("No speech captured. Press OK to retry.");
+        return;
+      }
+      peakLevel = null;
       try {
         if (sessionMedia[sess.id]) URL.revokeObjectURL(sessionMedia[sess.id]);
         sessionMedia[sess.id] = URL.createObjectURL(blob);

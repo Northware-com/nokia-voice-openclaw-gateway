@@ -119,5 +119,31 @@ function audioContext(deviations) {
   assert.equal(rec.state, 'inactive', 'a throwing WebAudio never breaks the clip');
   assert.ok(h.nodes.level.hidden);
 }
+// ── Silent clips never reach the bridge when the meter ran ─────────────────────
+{
+  const h = harness(new Map(), BRIDGE);
+  h.context.window.AudioContext = audioContext([0, 0, 0]);
+  h.key('Enter'); h.grant();
+  const tick = () => Object.values(h.tickers).find(t => t.active && t.ms === 120).fn();
+  tick(); tick(); tick();
+  const before = h.xhrRequests.length;
+  h.key('Call');
+  const rec = h.recorders[0];
+  rec.ondataavailable({data: new Blob(['OggS'])}); rec.onstop();
+  assert.match(h.status(), /No speech captured/, 'a silent meter refuses the send');
+  assert.equal(h.xhrRequests.length, before, 'no turn is posted for a silent clip');
+}
+{
+  const h = harness(new Map(), BRIDGE);
+  h.context.window.AudioContext = audioContext([0, 19, 38]);
+  h.key('Enter'); h.grant();
+  const tick = () => Object.values(h.tickers).find(t => t.active && t.ms === 120).fn();
+  tick(); tick(); tick();
+  h.key('Call');
+  const rec = h.recorders[0];
+  rec.ondataavailable({data: new Blob(['OggS'])}); rec.onstop();
+  assert.ok(h.xhrRequests.some(r => r.url.endsWith('/turns') || r.url.endsWith('/sessions')),
+    'a clip that lit the meter is still sent');
+}
 
 console.log('Nokia v08 meter (feature detection, level mapping, silent fallback) checks passed');
