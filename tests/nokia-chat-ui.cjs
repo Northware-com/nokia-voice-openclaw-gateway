@@ -53,7 +53,7 @@ function record(h) {
   assert.equal(K.mapKey('paused', 'SoftRight', true, true), 'send', 'SoftRight is the fallback Send');
   assert.equal(K.mapKey('paused', 'SoftLeft', true, true), 'cancel');
   assert.equal(K.mapKey('paused', 'Backspace', true, true), 'discard');
-  assert.equal(K.mapKey('idle', 'Call', true), 'none', 'Call is left to the system when idle');
+  assert.equal(K.mapKey('idle', 'Call', true), 'live', 'Call starts live talk when idle');
   assert.equal(K.LONG_PRESS_MS, undefined, 'no long-press threshold');
   assert.equal(K.mapKey('recording', '3', true), 'none');
   assert.equal(K.mapKey('menu', 'Enter', true), 'select');

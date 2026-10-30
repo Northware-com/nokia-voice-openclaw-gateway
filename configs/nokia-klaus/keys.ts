@@ -6,13 +6,13 @@ namespace Klaus {
     "none" | "type" | "talk" | "menu" | "back" | "cancel" | "send" | "pause" | "resume" | "discard" | "clear" | "voice" |
     "close" | "select" | "up" | "down" | "prev" | "next" | "top" | "bottom" |
     "pageUp" | "pageDown" | "read" | "autoread" | "sessions" | "new" | "archive" | "exitInput" | "notes" | "quick" | "pick" | "dial" | "stopMeeting" |
-    "search" | "typeChar" | "delChar" | "pin";
+    "search" | "typeChar" | "delChar" | "pin" | "live";
 
   // Clips longer than this need a second Backspace before they are discarded.
   export var DISCARD_CONFIRM_MS = 3000;
 
   var IDLE_KEYS: { [key: string]: Action } = {
-    SoftLeft: "type", Enter: "talk", " ": "talk", SoftRight: "menu",
+    SoftLeft: "type", Enter: "talk", " ": "talk", Call: "live", SoftRight: "menu",
     Backspace: "back", Escape: "back",
     ArrowUp: "up", ArrowDown: "down", ArrowLeft: "prev", ArrowRight: "next",
     "4": "prev", "6": "next", "1": "top", "9": "bottom", "2": "pageUp", "8": "pageDown",
@@ -319,7 +319,7 @@ namespace Klaus {
   // Plain words rather than arrows: only ↑ is verified in the handset font.
   export var KEY_HELP = [
     "OK  talk · again pauses",
-    "Call  send",
+    "Call  live talk / send",
     "Soft keys: type / menu",
     "Up/Down  messages",
     "4/6  previous/next chat",

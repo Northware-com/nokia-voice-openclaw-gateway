@@ -175,6 +175,7 @@ namespace Klaus {
     var launchTick: any = null;
     var talkHeld = false;
     var talkDownAt = 0;
+    var liveTalk = false; // green Call: conversation loop until Back or Call again
 
     function setMode(next: Mode): void {
       mode = next;
@@ -636,7 +637,7 @@ namespace Klaus {
       for (var k = oldCount; k < msgs.length; k++) {
         if (msgs[k].role === "assistant") { buzz("arrived"); sfx("reply"); uiFlash(); break; }
       }
-      if (autoRead && !busy) {
+      if ((autoRead || liveTalk) && !busy) {
         for (var i = oldCount; i < msgs.length; i++) {
           if (msgs[i].role === "assistant") ttsEnqueue(msgs[i].text, sess.id);
         }
@@ -792,6 +793,29 @@ namespace Klaus {
       if (message) say(message);
     }
 
+    function toggleLive(): void {
+      if (liveTalk) {
+        liveTalk = false;
+        cancelLocalCapture();
+        uiChipHide();
+        say("Live off.");
+        return;
+      }
+      liveTalk = true;
+      uiChip("LIVE", "meeting");
+      say("Live. Hold OK, talk, let go. Back hangs up.");
+      buzz("start");
+      sfx("start");
+      if (!busy && mode === "idle") startRecording();
+    }
+
+    function maybeLiveResume(): void {
+      if (!liveTalk || busy || mode !== "idle") return;
+      if (ttsCurrent()) return;
+      if (isBusyState(cur().serverState)) return;
+      startRecording();
+    }
+
     function startRecording(): void {
       if (busy) return;
       var sess = cur();
@@ -805,7 +829,7 @@ namespace Klaus {
       recStart = Date.now();
       setMode("recording");
       recTicker = setInterval(refreshSoftkeys, 1000);
-      if (!primed) say("Requesting microphone…");
+      if (!primed && !liveTalk) say("Requesting microphone…");
 
       function onStream(value: MediaStream): void {
         if (gen !== generation) { value.getTracks().forEach(function (t: MediaStreamTrack): void { t.stop(); }); return; }
@@ -1356,6 +1380,7 @@ namespace Klaus {
 
     // Back in idle: cancel what is in flight; returns false to let KaiOS close the app.
     function handleBack(): boolean {
+      if (liveTalk) { toggleLive(); return true; }
       if (mode === "meeting") { say("The meeting is still recording. OK stops and saves it."); return true; }
       if (notesMode) {
         if (selected >= 0) focusMessage(-1, true); else toggleNotes();
@@ -1387,6 +1412,7 @@ namespace Klaus {
       switch (action) {
         case "type": enterInput("typing", ""); break;
         case "talk": startRecording(); break;
+        case "live": toggleLive(); break;
         case "pause": pauseRecording(); break;
         case "resume": resumeRecording(); break;
         case "discard": discardRecording(); break;
@@ -1443,6 +1469,11 @@ namespace Klaus {
       var key = keyOf(event);
       var action = mapKey(mode, key, mode === "search" ? !searchQuery : !composer.value, canResume);
       if (action === "none") return;
+      if (liveTalk && (action === "discard" || action === "cancel")) {
+        toggleLive();
+        event.preventDefault();
+        return;
+      }
       if (action === "talk") { talkHeld = true; talkDownAt = Date.now(); }
       buzz("key"); // every key that acts gets the light tick
       sfx("key");
@@ -1496,7 +1527,10 @@ namespace Klaus {
       uiReading(speech && speech.sessionId === sess.id ? readingIndex(sess.messages, speech.text) : -1);
       refreshBanner();
     }
-    ttsOnChange(refreshReading);
+    ttsOnChange(function (): void {
+      refreshReading();
+      maybeLiveResume();
+    });
 
     // ── Init ────────────────────────────────────────────────────────────────
     // A turn in flight when the app closed is resent with its persisted request id; one
