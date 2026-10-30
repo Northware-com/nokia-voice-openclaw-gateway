@@ -127,6 +127,10 @@ namespace Klaus {
     }
 
     // ── Chrome: softkeys, top bar, thinking bubble ──────────────────────────
+    // Until the first paint settles (a splash may be on screen) every key press skips the
+    // splash, so the paper stays instant; nothing waits for an animation to finish.
+    var uiSplashGate: ((skipped: boolean) => void) | null = null;
+
     function setMode(next: Mode): void {
       mode = next;
       uiBarRecording(next === "recording" || next === "paused" || next === "meeting", notesMode, next === "paused");
@@ -994,9 +998,19 @@ namespace Klaus {
 
     function openMenu(): void { listIndex = 0; setMode("menu"); uiOverlay("Menu", menuItems(), listIndex, undefined, true); }
 
+    // ── Keys ────────────────────────────────────────────────────────────────────────
+    var KEYCODES: { [code: number]: string } = { 13: "Enter", 37: "ArrowLeft", 38: "ArrowUp", 39: "ArrowRight", 40: "ArrowDown" };
+
+    // The Keys screen builds its text lazily: it is the one static chunk of the start-up
+    // that no launch path uses, so it stays out of first paint.
+    var helpText = "";
     function openHelp(): void {
       setMode("help");
-      uiOverlay("Keys", [], -1, KEY_HELP.join("\n"));
+      if (!helpText) {
+        helpText = "";
+        for (var i = 0; i < KEY_HELP.length; i++) helpText += (i ? "\n" : "") + KEY_HELP[i];
+      }
+      uiOverlay("Keys", [], -1, helpText);
     }
 
     function openSessionList(): void {
@@ -1352,6 +1366,8 @@ namespace Klaus {
 
     document.addEventListener("keydown", function (event: KeyboardEvent): void {
       if (event.repeat) return;
+      var gate = uiSplashGate; uiSplashGate = null;
+      if (gate) { gate(true); event.preventDefault(); return; } // any key skips the splash at once
       var key = keyOf(event);
       var action = mapKey(mode, key, mode === "search" ? !searchQuery : !composer.value, canResume);
       if (action === "none") return;
@@ -1435,6 +1451,7 @@ namespace Klaus {
     uiConn("NOT CONNECTED");
     updateView();
     schedulePrime();
+
     function markOffline(): void {
       if (connState === "CONNECTED") { connState = "UNREACHABLE"; uiConn(connState); refreshBanner(); }
     }
@@ -1456,14 +1473,19 @@ namespace Klaus {
       });
     }
 
-    probe();
-    if (notes) notes.flush();
+    // First paint is already on screen: the connection probe, the notes flush and the
+    // periodic re-probe timer start on the next idle ticks so they never compete with
+    // the launch XHRs or delay the first frame. The mutable state they depend on
+    // (queue, outbox, textPending) is fully computed above, before this point.
+    setTimeout(function (): void { probe(); if (notes) notes.flush(); }, 0);
     if (connected) {
-      // Fast re-probe while offline; slow keep-alive check while connected.
-      setInterval(function (): void {
-        var every = connState === "CONNECTED" ? 60000 : 15000;
-        if (!document.hidden && Date.now() - lastProbe >= every) probe();
-      }, 5000);
+      setTimeout(function (): void {
+        // Fast re-probe while offline; slow keep-alive check while connected.
+        setInterval(function (): void {
+          var every = connState === "CONNECTED" ? 60000 : 15000;
+          if (!document.hidden && Date.now() - lastProbe >= every) probe();
+        }, 5000);
+      }, 0);
       window.addEventListener("online", function (): void { probe(); if (notes) notes.flush(); });
       window.addEventListener("offline", function (): void { markOffline(); say("Offline. Messages will queue."); });
     }

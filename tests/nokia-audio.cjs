@@ -69,6 +69,27 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   const composer = document.getElementById('composer');
   composer.focus = function () { document.activeElement = this; if (this.listeners.focus) this.listeners.focus(); };
   composer.blur = function () { document.activeElement = null; if (this.listeners.blur) this.listeners.blur(); };
+  // Let tests place the chat reader somewhere in the (fake) scroll view. Setting a real
+  // scrollTop value is all the app does to restore a reader's position.
+  const chat = document.getElementById('chat');
+  chat.scrollTo = function (top) { this.scrollTop = top; };
+  chat.addEventListener = function (name, fn) { (this.listeners = this.listeners || {})[name] = fn; };
+  // The virtualised transcript reports its full height as the sum of live rows plus the two
+  // spacer elements; the 100 px floor keeps non-virtual layouts on their historical geometry.
+  // (The fake #transcript is a sibling of #chat, so read the transcript node directly.)
+  const transcriptNode = document.getElementById('transcript');
+  Object.defineProperty(chat, 'scrollHeight', {
+    configurable: true,
+    get() {
+      let h = 0;
+      for (const c of transcriptNode.children) {
+        // Live message rows have no fake offsetHeight; the engine falls back to its 38 px
+        // row estimate for them, so count them at exactly that height (spacers at their px).
+        h = /\bmsg\b/.test(c.className || '') ? h + 38 : h + (c.offsetHeight || Number(String(c.style.height || '').replace(/px$/, '')) || 0);
+      }
+      return Math.max(100, h);
+    },
+  });
   const context = {
     Date: FakeDate,
     localStorage: {getItem(key) {return storage.has(key) ? storage.get(key) : null;}, setItem(key, value) {storage.set(key, value);}, removeItem(key) {storage.delete(key);}},
@@ -79,8 +100,10 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
     URL: {createObjectURL() {return `blob:test-${++nextUrl}`;}, revokeObjectURL(url) {revoked.push(url);}},
     Blob,
     crypto: {getRandomValues(arr) { for (let i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256); return arr; }},
-    // The 300 ms microphone-prime timer is kept apart so poll tests only see polls.
-    setTimeout(fn, ms) { const id = nextTimer++; if (ms === PRIME_MS) { primeTimers[id] = {fn, active: true}; return id; } pollTimers[id] = {fn() { pollTimers[id].active = false; fn(); }, ms, active: true}; return id; },
+    // The 300 ms microphone-prime timer is kept apart so poll tests only see polls;
+    // sub-frame deferred launch work (connection probe, notes flush) runs at once here, as
+    // it does against a 0 ms real-world budget.
+    setTimeout(fn, ms) { const id = nextTimer++; if (ms === PRIME_MS) { primeTimers[id] = {fn, active: true}; return id; } if (ms <= 16) { fn(); return id; } pollTimers[id] = {fn() { pollTimers[id].active = false; fn(); }, ms, active: true}; return id; },
     clearTimeout(id) { if (pollTimers[id]) pollTimers[id].active = false; if (primeTimers[id]) primeTimers[id].active = false; },
     setInterval(fn, ms) { const id = nextTimer++; tickers[id] = {fn, ms, active: true}; return id; },
     clearInterval(id) { if (tickers[id]) tickers[id].active = false; },
