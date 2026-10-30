@@ -85,6 +85,20 @@ body { display: flex; flex-direction: column; position: relative; }
 #level i:nth-child(2) { height: 4px; } #level i:nth-child(3) { height: 7px; }
 #level i:nth-child(4) { height: 5px; } #level i:nth-child(5) { height: 3px; }
 
+/* v0.8 feel: launch card, reply pop, overlay slide. Every animation stays under
+   300 ms, and the pop class is removed by its own timer so no row keeps the
+   animation state. */
+#launch { position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #051111; text-align: center; }
+#launch-time { font: bold 34px sans-serif; color: #1bfc9e; line-height: 40px; }
+#launch-line { margin-top: 2px; padding: 0 12px; font-size: 14px; line-height: 18px; color: #e7fff5; max-height: 36px; overflow: hidden; }
+#launch-hint { margin-top: 10px; font-size: 14px; color: #8fd9bd; }
+
+@keyframes row-pop { from { opacity: 0.4; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+.msg.bot.pop .bubble { animation: row-pop 220ms ease-out; }
+
+@keyframes overlay-slide { from { opacity: 0.3; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+#overlay:not(.hidden) { animation: overlay-slide 160ms ease-out; }
+
 #composer { flex: 0 0 30px; height: 30px; width: 100%; margin: 0; padding: 0 6px; border: 0; border-top: 1px solid #075555; border-radius: 0; background: #0d2020; color: #ffffff; font: 16px sans-serif; }
 #composer:focus { outline: none; background: #142828; border-top: 2px solid #1bfc9e; }
 
@@ -225,3 +239,9 @@ body.night { background: #000; color: #e0b98f; }
 .night .chat.failed .pv { color: #ff9c86; }
 .night #bar.rec { background: #5a1010; border-bottom-color: #ff5a3c; }
 .night #bar.paused { background: #4a3400; border-bottom-color: #ffb000; }
+.night #launch { background: #000; }
+.night #launch-time { color: #ffb36b; }
+.night #launch-line { color: #ffe2c2; }
+.night #launch-hint { color: #b8926b; }
+.night #upload { background: #160d06; }
+.night #level { background: #160d06; }

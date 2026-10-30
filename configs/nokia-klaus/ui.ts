@@ -4,6 +4,7 @@ namespace Klaus {
   var chatEl: HTMLElement, listEl: HTMLElement, thinkingEl: HTMLElement, echoEl: HTMLElement;
   var chipEl: HTMLElement, chipTimer: any = null;
   var statusEl: HTMLElement, bannerEl: HTMLElement, uploadEl: HTMLElement, levelEl: HTMLElement, skEls: HTMLElement[], overlayEl: HTMLElement, overlayTitle: HTMLElement, overlayList: HTMLElement;
+  var launchEl: HTMLElement, launchTime: HTMLElement, launchLine: HTMLElement, launchHint: HTMLElement; // the half-second launch card
   export var composer: HTMLInputElement;
 
   // Virtualised transcript: only a window around the viewport lives in the DOM, capped at UI_POOL_MAX
@@ -19,6 +20,8 @@ namespace Klaus {
   var poolStart = 0, poolEnd = 0;
   var selectedRow = -1;
   var readingRow = -1;
+  var popFrom = -1;                 // message index of the newest arriving row
+  var popTimer: any = null;         // one-shot clearing ticker so tests can drive it
   var emptyEl: HTMLElement | null = null; // "No messages yet" placeholder
   var pendingShown = false;               // a thinking bubble is visible
   var spcTop: HTMLElement, spcBottom: HTMLElement;
@@ -37,10 +40,11 @@ namespace Klaus {
     bar = byId("bar"); indexEl = byId("session-index"); titleEl = byId("session-title"); connEl = byId("connection");
     chatEl = byId("chat"); listEl = byId("transcript"); thinkingEl = byId("thinking"); echoEl = byId("echo");
     statusEl = byId("status"); bannerEl = byId("banner"); uploadEl = byId("upload"); levelEl = byId("level"); composer = byId("composer") as HTMLInputElement;
+    launchEl = byId("launch"); launchTime = byId("launch-time"); launchLine = byId("launch-line"); launchHint = byId("launch-hint");
     skEls = [byId("sk-left"), byId("sk-center"), byId("sk-right")];
     overlayEl = byId("overlay"); overlayTitle = byId("overlay-title"); overlayList = byId("overlay-list");
     chipEl = byId("chip");
-    show(chipEl, false); show(thinkingEl, false); show(echoEl, false); show(statusEl, false); show(bannerEl, false); show(uploadEl, false); show(levelEl, false); show(overlayEl, false);
+    show(chipEl, false); show(thinkingEl, false); show(echoEl, false); show(statusEl, false); show(bannerEl, false); show(uploadEl, false); show(levelEl, false); show(overlayEl, false); show(launchEl, false);
     spcTop = document.createElement("div"); spcTop.className = "spc";
     spcBottom = document.createElement("div"); spcBottom.className = "spc";
   }
@@ -128,6 +132,17 @@ namespace Klaus {
     show(uploadEl, amount !== null);
     if (amount !== null) (uploadEl.firstElementChild as HTMLElement).style.width = Math.round(Math.max(0, Math.min(1, amount)) * 100) + "%";
   }
+
+  // The half-second launch card: time, one line of the day, ready hint. Any key or the
+  // ~500 ms timer dismisses it; the app state underneath is untouched by both.
+  export function uiLaunchCard(time: string, line: string): void {
+    launchTime.textContent = time;
+    launchLine.textContent = line;
+    launchHint.textContent = "\u25cf ready \u00b7 OK to talk";
+    show(launchEl, true);
+  }
+
+  export function uiLaunchCardHide(): void { show(launchEl, false); }
 
   export function uiComposerHint(mode: Mode, notes: boolean): void {
     var hint = mode === "rename" ? "Chat name" : mode === "typing" ? (notes ? "Type a note" : "Type a message")
@@ -318,6 +333,19 @@ namespace Klaus {
     setSpacer(spcBottom, poolEnd < liveCount ? estRange(poolEnd, liveCount) : 0);
   }
 
+  // The newest arriving assistant row pops in; the class is cleared by a one-shot
+  // ticker (tests can drive or stop it) so the animation never outlives the row.
+  function markPop(from: number): void {
+    popFrom = from;
+    if (popTimer) { try { clearInterval(popTimer); } catch (_e) { /* old engines */ } popTimer = null; }
+    popTimer = setInterval(function (): void {
+      try { clearInterval(popTimer); } catch (_e) { /* old engines */ }
+      popTimer = null;
+      popFrom = -1;
+      windowRender();
+    }, 250);
+  }
+
   // Paint window slot k with the message it currently shows (visual, text and state classes).
   function paintSlot(k: number): void {
     var m = liveMessages[poolStart + k];
@@ -327,6 +355,8 @@ namespace Klaus {
     var cls = "msg " + (m.role === "user" ? "user" : "bot") + (m.voice ? " voice" : "");
     if (selectedRow === poolStart + k) cls += " sel";
     if (readingRow === poolStart + k) cls += " reading";
+    // The pop is a one-frame arrival on the newest row; it layers under reading/focus.
+    if (popFrom >= 0 && poolStart + k >= popFrom) cls += " pop";
     row.className = cls;
     var bubble = row.firstChild as HTMLElement | null;
     if (!bubble || !/\bbubble\b/.test(bubble.className || "")) {
@@ -378,6 +408,12 @@ namespace Klaus {
     rendered = []; savedKeys = []; heights = [];
     liveMessages = []; liveCount = 0; poolStart = 0; poolEnd = 0;
     selectedRow = -1; emptyEl = null; readingRow = -1;
+    stopPop();
+  }
+
+  function stopPop(): void {
+    popFrom = -1;
+    if (popTimer) { try { clearInterval(popTimer); } catch (_e) { /* old engines */ } popTimer = null; }
   }
 
   // Render a session's messages. Keeps already-live rows when the prefix is unchanged, grows
@@ -403,7 +439,9 @@ namespace Klaus {
     if (prefixOk) {
       // Same session, same prefix: new rows are only added; the pool and measured heights
       // survive so existing row nodes keep their identity.
+      var oldLen = savedKeys.length;
       for (var k = savedKeys.length; k < messages.length; k++) savedKeys.push(rowKey(messages[k]));
+      if (messages.length > oldLen && messages[messages.length - 1].role === "assistant") markPop(oldLen);
     } else {
       clearList();
       for (var k2 = 0; k2 < messages.length; k2++) savedKeys.push(rowKey(messages[k2]));

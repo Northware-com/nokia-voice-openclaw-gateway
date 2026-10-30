@@ -40,8 +40,8 @@ function typedTurn(h, id, text, reply) {
 const menuRows = h => h.nodes['overlay-list'].children.filter(c => /\bitem\b/.test(c.className));
 function pickBackup(h) {
   h.key('SoftRight');
-  assert.equal(menuRows(h).length, 10, 'the menu has ten numbered items');
-  for (let i = 0; i < 9; i++) h.key('ArrowDown'); // walk to the last item, "Backup chats"
+  assert.equal(menuRows(h).length, 11, 'the menu has eleven numbered items');
+  for (let i = 0; i < 9; i++) h.key('ArrowDown'); // walk to "Backup chats" (Sound is last now)
   assert.equal(menuRows(h)[9].textContent, '10Backup chats', 'Backup is the last menu row (9 stays Keys)');
   assert.ok(/\bsel\b/.test(menuRows(h)[9].className), 'the Backup row is focused');
   h.key('Enter');
@@ -51,11 +51,11 @@ function pickBackup(h) {
 {
   const K = harness().context.Klaus;
   const empty = K.buildBackup([], {autoread: true, haptics: false, night: true, large: false});
-  assert.equal(empty.version, 1, 'the export schema is versioned');
+  assert.equal(empty.version, 2, 'the export schema is versioned (v2 adds the sound setting)');
   assert.equal(empty.app, 'klaus');
   assert.ok(typeof empty.at === 'number');
   assert.deepEqual(norm(empty.chats), []);
-  assert.deepEqual(norm(empty.settings), {autoread: true, haptics: false, night: true, large: false});
+  assert.deepEqual(norm(empty.settings), {autoread: true, haptics: false, night: true, large: false, sound: false});
   const sess = {id: 's1', title: 'Plan', clientId: 'cl-1', serverId: 'srv-1', messages: [
     {role: 'user', text: 'hi'}, {role: 'assistant', text: 'hello'}, {role: 'user', text: 'Voice clip · 0:07', voice: true}],
     pinned: true, named: true, archived: false, updatedAt: 1234};
@@ -82,7 +82,7 @@ function pickBackup(h) {
   assert.match(files[0].path, /^\/app\/klaus\/klaus-backup-\d{4}-\d{2}-\d{2}\.json$/, 'one dated file in the app sandbox');
   assert.equal(files[0].mode & 0o777, 0o600, 'the backup is written mode 600');
   const parsed = JSON.parse(files[0].data);
-  assert.equal(parsed.version, 1);
+  assert.equal(parsed.version, 2);
   assert.equal(parsed.chats.length, 2, 'every stored chat is in the file');
   assert.deepEqual(norm(parsed.chats.map(c => c.messages.length).sort()), [0, 2], 'the seeded chat keeps both turns; the new chat is empty');
   assert.equal(parsed.chats.find(c => c.messages.length === 2).title, 'Call the plumber', 'auto-titled chats keep their title in the backup');
@@ -113,7 +113,7 @@ function pickBackup(h) {
   assert.equal(console.logs.length, 1, 'the JSON snapshot goes to the console');
   const logged = JSON.parse(console.logs[0]);
   assert.ok(logged.chats.every(c => !(c.id === 'notes')), 'the Notes scratch pad is not a stored chat');
-  assert.equal(logged.version, 1, 'the console snapshot is the same versioned schema');
+  assert.equal(logged.version, 2, 'the console snapshot is the same versioned schema');
   assert.ok(logged.chats.length === 1 && logged.chats[0].messages.length === 2, 'the console snapshot holds the stored chat');
 }
 console.log('Nokia local backup (schema, secrets, sandbox write, console fallback) checks passed');

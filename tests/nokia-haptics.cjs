@@ -1,5 +1,6 @@
-// nokia-haptics.cjs — short, distinct vibrations for record start, pause, send, arrival and
-// errors, switched off and on from the menu and remembered across restarts.
+// nokia-haptics.cjs — short, distinct vibrations: one light tick per acting key, record
+// start, pause, send, arrival and errors, switched off and on from the menu and
+// remembered across restarts.
 'use strict';
 const assert = require('node:assert/strict');
 const {harness} = require('./nokia-audio.cjs');
@@ -17,13 +18,14 @@ function respond(req, status, body) {
 {
   const K = harness().context.Klaus;
   const p = K.HAPTICS;
-  const kinds = ['start', 'pause', 'send', 'arrived', 'error'];
+  const kinds = ['key', 'start', 'pause', 'send', 'arrived', 'error'];
   const shapes = kinds.map(k => JSON.stringify(p[k]));
   assert.equal(new Set(shapes).size, kinds.length, 'every event has its own pattern');
   for (const k of kinds) {
     const total = p[k].reduce((a, b) => a + b, 0);
     assert.ok(total <= 600, `${k} stays short (${total} ms)`);
   }
+  assert.ok(p.key.reduce((a, b) => a + b, 0) <= 40, 'the key tick is very light');
   assert.ok(p.pause.length > p.start.length, 'pause is a double tick, start a single one');
   assert.ok(p.arrived.length > p.pause.length, 'arrival is the triple tick');
 }
@@ -33,12 +35,12 @@ function respond(req, status, body) {
   const h = harness(new Map(), BRIDGE);
   const K = JSON.parse(JSON.stringify(h.context.Klaus.HAPTICS));
   h.key('Enter'); h.grant();
-  assert.deepEqual(h.vibrations, [K.start], 'the tick comes when the recorder really starts');
+  assert.deepEqual(h.vibrations, [K.key, K.start], 'start buzzes once the microphone is really open, after its key tick');
   const rec = h.recorders[0];
   rec.pause = () => { rec.state = 'paused'; }; rec.resume = () => { rec.state = 'recording'; };
   // canResume is read when the recorder starts; this fake gained pause() later, so OK stops-and-keeps.
   h.key('Enter');
-  assert.deepEqual(h.vibrations.at(-1), K.pause);
+  assert.deepEqual(h.vibrations.slice(-2), [K.key, K.pause], 'pause keeps its double tick after its own key tick');
   h.key('Call');
   rec.ondataavailable({data: new Blob(['OggS'])}); rec.onstop();
   assert.deepEqual(h.vibrations.at(-1), K.send, 'Call buzzes once the clip is handed over');
@@ -49,7 +51,7 @@ function respond(req, status, body) {
   const h = harness(new Map(), BRIDGE);
   const K = JSON.parse(JSON.stringify(h.context.Klaus.HAPTICS));
   h.key('SoftLeft'); h.composer.value = 'hello'; h.key('Enter');
-  assert.deepEqual(h.vibrations, [K.send]);
+  assert.deepEqual(h.vibrations, [K.key, K.key, K.send], 'each acting key ticks; send keeps its firm pulse');
   respond(h.xhrRequests.find(r => r.url === BRIDGE + '/sessions' && r.method === 'POST'), 201, {id: 's1'});
   respond(h.xhrRequests.find(r => r.url.endsWith('/turns')), 202, {runId: 'r1', state: 'pending'});
   h.activePolls().forEach(id => h.pollTimers[id].fn());
@@ -58,7 +60,7 @@ function respond(req, status, body) {
   assert.deepEqual(h.vibrations.at(-1), K.arrived, 'a new reply gives the triple tick');
   const count = h.vibrations.length;
   h.key('0'); h.key('1');
-  assert.equal(h.vibrations.length, count + 1);
+  assert.equal(h.vibrations.length, count + 3, 'open tick, then the send key tick and its send pulse');
   assert.deepEqual(h.vibrations.at(-1), K.send, 'a quick reply buzzes like any send');
 }
 
@@ -69,12 +71,12 @@ function respond(req, status, body) {
   h.key('Enter');
   h.requests[0].fail(new Error('denied'));
   assert.match(h.status(), /denied/);
-  assert.deepEqual(h.vibrations, [K.error]);
+  assert.deepEqual(h.vibrations, [K.key, K.error], 'the key tick came first; the error keeps its pattern');
   h.key('Enter'); h.requests[1].fail(new Error('denied'));
-  assert.equal(h.vibrations.length, 1, 'a second error within 4 s stays quiet');
+  assert.equal(h.vibrations.length, 3, 'a second error within 4 s stays quiet (its key tick still fires)');
   h.clock.t += 5000;
   h.key('Enter'); h.requests[2].fail(new Error('denied'));
-  assert.equal(h.vibrations.length, 2);
+  assert.equal(h.vibrations.length, 5);
 }
 
 // ── Notes: saved notes tick, rejected notes buzz the error ────────────────
@@ -102,8 +104,9 @@ function respond(req, status, body) {
   assert.equal(h.status(), 'Vibrate off.');
   assert.equal(h.nodes.status.className, 'ok');
   assert.equal(storage.get('klaus.haptics'), '0');
+  assert.equal(h.vibrations.length, 2, 'both opening key presses ticked before the switch took effect');
   h.key('Enter'); h.grant();
-  assert.equal(h.vibrations.length, 0, 'switched off: recording is silent');
+  assert.equal(h.vibrations.length, 2, 'switched off: the recording and its keys stay silent');
 
   const again = harness(storage);
   again.key('Enter'); again.grant();

@@ -9,11 +9,12 @@ namespace Klaus {
     haptics: boolean;
     night: boolean;
     large: boolean;
+    sound: boolean;
   };
 
   export type BackupFile = { version: number; app: string; at: number; chats: any[]; settings: BackupSettings; };
 
-  export var BACKUP_VERSION = 1;
+  export var BACKUP_VERSION = 2;
 
   export function buildBackup(sessions: LocalSession[], settings: BackupSettings): BackupFile {
     var chats: any[] = [];
@@ -45,7 +46,8 @@ namespace Klaus {
         autoread: settings.autoread === true,
         haptics: settings.haptics === true,
         night: settings.night === true,
-        large: settings.large === true
+        large: settings.large === true,
+        sound: settings.sound === true
       }
     };
   }

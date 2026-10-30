@@ -41,6 +41,7 @@ namespace Klaus {
     var haptics = loadSetting("haptics", true);
     var night = loadSetting("night", false);  // dim warm palette for dark rooms
     var large = loadSetting("large", false);  // bigger message and list text
+    var sound = loadSetting("sound", true);   // short synthesized interface blips
     var lastErrorBuzz = 0;
     var listIndex = 0;              // menu / session-list cursor
     var listTargets: number[] = []; // session-list item → session index
@@ -93,6 +94,7 @@ namespace Klaus {
       ? createNotesBox(cfg.notesUrl, cfg.notesToken, notesChanged, function (text: string): void { if (notesMode) say(text); },
           function (saved: boolean, label: string, kind: string): void {
             buzz(saved ? "arrived" : "error");
+            if (saved) sfx("note");
             if (saved && notesMode) uiChip("\u2713 " + label, kind);
           })
       : null;
@@ -122,14 +124,54 @@ namespace Klaus {
       }
       try { nav.vibrate(HAPTICS[kind]); } catch (_e) { /* no vibrator */ }
     }
+
+    // ── Sounds: short synthesized blips, no assets. A KaiOS build without WebAudio keeps
+    // every other behavior and simply stays silent; nothing can fail audibly.
+    var SOUNDS: { [name: string]: number[][] } = {
+      key:   [[660, 18, 0.04]],                              // one light tick
+      start: [[520, 30, 0.06], [780, 30, 0.06]],             // two rising notes
+      pause: [[440, 50, 0.06]],                              // one low note
+      send:  [[660, 25, 0.06], [990, 35, 0.07]],             // one firm rising pair
+      reply: [[1046, 70, 0.07], [1318, 90, 0.07]],           // the distinct two-note chime
+      note:  [[880, 45, 0.06]]                               // saved-note blip
+    };
+    var soundCtx: any = null;
+    var soundDead = false;  // an AudioContext that threw is not retried
+    function sfx(name: string): void {
+      if (!sound || soundDead) return;
+      var Ctor: any = null;
+      try { Ctor = (window as any).AudioContext || (window as any).webkitAudioContext; } catch (_e) { Ctor = null; }
+      if (!Ctor) return;
+      try {
+        if (!soundCtx) soundCtx = new Ctor();
+        var spec = SOUNDS[name];
+        if (!spec) return;
+        var offset = 0;
+        for (var i = 0; i < spec.length; i++) {
+          var s = spec[i];
+          var osc = soundCtx.createOscillator();
+          var gain = soundCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.value = s[0];
+          gain.gain.value = s[2];
+          osc.connect(gain);
+          gain.connect(soundCtx.destination);
+          osc.start(soundCtx.currentTime + offset / 1000);
+          osc.stop(soundCtx.currentTime + (offset + s[1]) / 1000);
+          offset += s[1];
+        }
+      } catch (_e) { soundDead = true; }
+    }
     function persist(): void {
       if (!persistSessions(sessions, active)) say("Storage unavailable; changes may not persist.");
     }
 
     // ── Chrome: softkeys, top bar, thinking bubble ──────────────────────────
-    // Until the first paint settles (a splash may be on screen) every key press skips the
-    // splash, so the paper stays instant; nothing waits for an animation to finish.
-    var uiSplashGate: ((skipped: boolean) => void) | null = null;
+    // The launch card reuses this gate: it closes the card on the first key press and
+    // returns false so the pressing key still acts (a gate returning true eats the key,
+    // as the legacy splash-skip did).
+    var uiSplashGate: ((skipped: boolean) => boolean) | null = null;
+    var launchTick: any = null;
 
     function setMode(next: Mode): void {
       mode = next;
@@ -589,7 +631,7 @@ namespace Klaus {
       if (!(settled && (next === "pending" || next === "idle"))) sess.serverState = next;
       persist();
       for (var k = oldCount; k < msgs.length; k++) {
-        if (msgs[k].role === "assistant") { buzz("arrived"); break; }
+        if (msgs[k].role === "assistant") { buzz("arrived"); sfx("reply"); break; }
       }
       if (autoRead && !busy) {
         for (var i = oldCount; i < msgs.length; i++) {
@@ -791,6 +833,7 @@ namespace Klaus {
           rec.start();
           recStart = Date.now();
           buzz("start");
+          sfx("start");
           refreshSoftkeys();
           say("");
           if (stopRequested) stopRecording();
@@ -843,6 +886,7 @@ namespace Klaus {
       } catch (_e) { /* playback copy is optional */ }
       say("");
       buzz("send");
+      sfx("send");
       ttsNext();
       if (sess === notesSess && notes) notes.add(blob, null);
       else { addVoiceTurn(sess, ms); submitTurn(sess, blob, null, true); }
@@ -874,6 +918,7 @@ namespace Klaus {
       if (recTicker) { clearInterval(recTicker); recTicker = null; }
       setMode("paused");
       buzz("pause");
+      sfx("pause");
       if (canResume) {
         try { (recorder as any).pause(); } catch (_e) { canResume = false; }
       }
@@ -889,6 +934,7 @@ namespace Klaus {
       recStart = Date.now();
       setMode("recording");
       buzz("start");
+      sfx("start");
       recTicker = setInterval(refreshSoftkeys, 1000);
       say("");
     }
@@ -946,6 +992,7 @@ namespace Klaus {
       if (notes) notes.meetingFinish(ms);
       endMeeting();
       buzz("send");
+      sfx("send");
       say("Meeting " + formatElapsed(ms) + " saved. Plato writes the note.");
     }
 
@@ -985,6 +1032,7 @@ namespace Klaus {
       composer.value = "";
       exitInput();
       buzz("send");
+      sfx("send");
       if (notesMode && notes) notes.add(null, text);
       else submitTurn(cur(), null, text, true);
     }
@@ -993,7 +1041,8 @@ namespace Klaus {
     function menuItems(): string[] {
       return ["New chat", "Rename", "Archive", "Retry last", "Read aloud: " + (autoRead ? "on" : "off"),
         "Vibrate: " + (haptics ? "on" : "off"), "Night mode: " + (night ? "on" : "off"),
-        "Large text: " + (large ? "on" : "off"), "Keys", "Backup chats"];
+        "Large text: " + (large ? "on" : "off"), "Keys", "Backup chats",
+        "Sound: " + (sound ? "on" : "off")];
     }
 
     function openMenu(): void { listIndex = 0; setMode("menu"); uiOverlay("Menu", menuItems(), listIndex, undefined, true); }
@@ -1144,7 +1193,7 @@ namespace Klaus {
     function sendQuick(index: number): void {
       var text = quickItems[index];
       closeOverlay();
-      if (text) { buzz("send"); submitTurn(cur(), null, text, true); }
+      if (text) { buzz("send"); sfx("send"); submitTurn(cur(), null, text, true); }
     }
 
     function moveList(delta: number): void {
@@ -1201,6 +1250,7 @@ namespace Klaus {
       else if (choice === 7) toggleDisplay("large");
       else if (choice === 8) openHelp();
       else if (choice === 9) makeBackup();
+      else if (choice === 10) toggleSound();
     }
 
     // Menu › Backup chats: one local JSON snapshot of every stored chat and the
@@ -1209,7 +1259,7 @@ namespace Klaus {
     // on screen and to the console. The export never carries the bridge URL,
     // tokens, client/server ids or request ids.
     function makeBackup(): void {
-      var file = buildBackup(sessions, { autoread: autoRead, haptics: haptics, night: night, large: large });
+      var file = buildBackup(sessions, { autoread: autoRead, haptics: haptics, night: night, large: large, sound: sound });
       var path = writeBackup(file);
       if (path) {
         try { if (typeof console !== "undefined" && console.log) console.log("Klaus backup written: " + path); } catch (_e) { /* no console */ }
@@ -1245,6 +1295,13 @@ namespace Klaus {
       saveSetting("haptics", haptics);
       buzz("start"); // feel the change when switching on
       say("Vibrate " + (haptics ? "on" : "off") + ".");
+    }
+
+    function toggleSound(): void {
+      sound = !sound;
+      saveSetting("sound", sound);
+      if (sound) sfx("key"); // hear the change when switching on
+      say("Sound " + (sound ? "on" : "off") + ".");
     }
 
     function playRecording(sess: LocalSession): void {
@@ -1367,10 +1424,12 @@ namespace Klaus {
     document.addEventListener("keydown", function (event: KeyboardEvent): void {
       if (event.repeat) return;
       var gate = uiSplashGate; uiSplashGate = null;
-      if (gate) { gate(true); event.preventDefault(); return; } // any key skips the splash at once
+      if (gate && gate(true)) { event.preventDefault(); return; }
       var key = keyOf(event);
       var action = mapKey(mode, key, mode === "search" ? !searchQuery : !composer.value, canResume);
       if (action === "none") return;
+      buzz("key"); // every key that acts gets the light tick
+      sfx("key");
       uiKeyDown(softkeyIndex(key));
       uiChipHide();
       if (action !== "discard" && discardArmed) { discardArmed = false; refreshBanner(); }
@@ -1489,5 +1548,30 @@ namespace Klaus {
       window.addEventListener("online", function (): void { probe(); if (notes) notes.flush(); });
       window.addEventListener("offline", function (): void { markOffline(); say("Offline. Messages will queue."); });
     }
+
+    // ── Launch card: half a second of your day before the chat is the point. Time, one
+    // line of the active chat, ready to talk. Any key dismisses it at once and still acts,
+    // so the card is a glance, never a gate; no network on this path.
+    (function (): void {
+      var sess = cur();
+      var lastMsg: ApiMessage | null = sess.messages.length ? sess.messages[sess.messages.length - 1] : null;
+      var line = lastMsg ? sess.title + " \u00b7 " + lastMsg.text : sess.title;
+      line = line.replace(/[\r\n\t]+/g, " ");
+      if (line.length > 44) line = line.slice(0, 43) + "\u2026";
+      var d = new Date(Date.now());
+      uiLaunchCard(d.getHours() + (d.getMinutes() < 10 ? ":0" : ":") + d.getMinutes(), line);
+      launchTick = setInterval(function (): void {
+        clearInterval(launchTick);
+        launchTick = null;
+        uiSplashGate = null;
+        uiLaunchCardHide();
+      }, 500);
+      uiSplashGate = function (skipped: boolean): boolean {
+        if (launchTick) { clearInterval(launchTick); launchTick = null; }
+        uiSplashGate = null;
+        uiLaunchCardHide();
+        return false; // the pressing key still acts
+      };
+    })();
   })();
 }

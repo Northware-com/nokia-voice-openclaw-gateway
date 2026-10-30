@@ -22,7 +22,7 @@ const menuRows = h => h.nodes['overlay-list'].children.filter(c => /\bitem\b/.te
   assert.equal(K.mapKey('help', '5', true), 'none', 'the help screen ignores other keys');
   assert.deepEqual(Array.from(K.softkeysFor('help', '')), ['Close', 'OK', '']);
   for (const line of K.KEY_HELP) assert.ok(line.length <= 24, `help line fits 240 px: ${line}`);
-  assert.equal(K.KEY_HELP.length, 14, 'every idle key family is listed');
+  assert.equal(K.KEY_HELP.length, 15, 'every idle key family is listed');
   assert.equal(K.KEY_HELP.includes('list right key: search'), true, 'the chat search entry is on the Keys screen');
 }
 
@@ -41,7 +41,7 @@ const menuRows = h => h.nodes['overlay-list'].children.filter(c => /\bitem\b/.te
   const h = harness();
   h.key('SoftRight');
   const rows = menuRows(h);
-  assert.deepEqual(rows.map(r => r.textContent), ['1New chat', '2Rename', '3Archive', '4Retry last', '5Read aloud: on', '6Vibrate: on', '7Night mode: off', '8Large text: off', '9Keys', '10Backup chats']);
+  assert.deepEqual(rows.map(r => r.textContent), ['1New chat', '2Rename', '3Archive', '4Retry last', '5Read aloud: on', '6Vibrate: on', '7Night mode: off', '8Large text: off', '9Keys', '10Backup chats', '11Sound: on']);
   assert.ok(rows.every(r => /\bnum\b/.test(r.className)), 'menu rows carry digit badges');
   h.key('0');
   assert.ok(!h.nodes.overlay.hidden, 'a digit past the last item does nothing');
