@@ -5,11 +5,19 @@ const vm = require('node:vm');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../configs/nokia-klaus/app.js'), 'utf8');
 // Minimal DOM element: enough of the API used by configs/nokia-klaus/ui.ts.
 class FakeElement {
-  constructor(id) { this.id = id || ''; this.children = []; this.parentNode = null; this.attrs = {}; this.listeners = {};
+  constructor(id) { this.id = id || ''; this.tag = id || ''; this.children = []; this.parentNode = null; this.attrs = {}; this.listeners = {};
     this.className = ''; this._text = ''; this.scrollTop = 0; this.clientHeight = 200; this.offsetTop = 0; this.value = '';
     this.style = {}; }
   get firstChild() { return this.children[0] || null; }
   get firstElementChild() { return this.children[0] || null; }
+  // The level meter enumerates its bar <i> children by tag; the rest of the fake DOM
+  // never has nested tags, so a recursive tag match is sufficient.
+  getElementsByTagName(tag) {
+    const out = [];
+    const walk = el => { for (const c of el.children) { if (c.tag === tag) out.push(c); walk(c); } };
+    walk(this);
+    return out;
+  }
   get scrollHeight() { return 100 + this.children.length * 20; }
   get textContent() { return this._text + this.children.map(c => c.textContent).join(''); }
   set textContent(v) { this.children.forEach(c => { c.parentNode = null; }); this.children = []; this._text = String(v); }
@@ -60,12 +68,27 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
   class FakeDate extends Date { static now() { return clock.t; } }
   const player = {paused: true, addEventListener() {}, pause() {this.paused = true;}, play() {this.paused = false; return {catch() {}};}, removeAttribute() {delete this.src;}};
   const nodes = {player};
-  const document = {
+  const hostDocument = {
     hidden: false, activeElement: null, body: new FakeElement('body'),
-    getElementById(id) { if (!nodes[id]) nodes[id] = new FakeElement(id); return nodes[id]; },
+    // The real index.html carries the meter's five bar <i> children and the upload fill
+    // <span>; seed them so level/upload rendering is testable.
+    SEED: {
+      level: () => {
+        const el = new FakeElement('level');
+        for (let i = 0; i < 5; i++) el.children.push(new FakeElement('i'));
+        return el;
+      },
+      upload: () => {
+        const el = new FakeElement('upload');
+        el.children.push(new FakeElement('span'));
+        return el;
+      },
+    },
+    getElementById(id) { if (!nodes[id]) nodes[id] = this.SEED[id] ? this.SEED[id]() : new FakeElement(id); return nodes[id]; },
     createElement() { return new FakeElement(); },
     addEventListener(name, fn) { handlers[name] = fn; },
   };
+  const document = hostDocument;
   const composer = document.getElementById('composer');
   composer.focus = function () { document.activeElement = this; if (this.listeners.focus) this.listeners.focus(); };
   composer.blur = function () { document.activeElement = null; if (this.listeners.blur) this.listeners.blur(); };
@@ -115,6 +138,7 @@ function harness(storage = new Map(), bridgeUrl = '', options = {}) {
       this.headers = {};
       this.open = function(method, url) { self._method = method; self._url = url; };
       this.setRequestHeader = function(k, v) { self.headers[k] = v; };
+      this.upload = { onprogress: null }; // upload progress is test-dispatchable
       this.send = function(body) { xhrRequests.push({method: self._method, url: self._url, body, req: self, headers: self.headers}); };
       this.timeout = 30000;
     },
