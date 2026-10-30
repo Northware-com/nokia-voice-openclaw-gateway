@@ -5,6 +5,7 @@ namespace Klaus {
   var chipEl: HTMLElement, chipTimer: any = null;
   var statusEl: HTMLElement, bannerEl: HTMLElement, uploadEl: HTMLElement, levelEl: HTMLElement, skEls: HTMLElement[], overlayEl: HTMLElement, overlayTitle: HTMLElement, overlayList: HTMLElement;
   var launchEl: HTMLElement, launchTime: HTMLElement, launchLine: HTMLElement, launchHint: HTMLElement; // the half-second launch card
+  var clockH: HTMLElement, clockM: HTMLElement, clockS: HTMLElement, flashEl: HTMLElement;
   export var composer: HTMLInputElement;
 
   // Virtualised transcript: only a window around the viewport lives in the DOM, capped at UI_POOL_MAX
@@ -41,10 +42,11 @@ namespace Klaus {
     chatEl = byId("chat"); listEl = byId("transcript"); thinkingEl = byId("thinking"); echoEl = byId("echo");
     statusEl = byId("status"); bannerEl = byId("banner"); uploadEl = byId("upload"); levelEl = byId("level"); composer = byId("composer") as HTMLInputElement;
     launchEl = byId("launch"); launchTime = byId("launch-time"); launchLine = byId("launch-line"); launchHint = byId("launch-hint");
+    clockH = byId("hhand"); clockM = byId("mhand"); clockS = byId("shand"); flashEl = byId("flash");
     skEls = [byId("sk-left"), byId("sk-center"), byId("sk-right")];
     overlayEl = byId("overlay"); overlayTitle = byId("overlay-title"); overlayList = byId("overlay-list");
     chipEl = byId("chip");
-    show(chipEl, false); show(thinkingEl, false); show(echoEl, false); show(statusEl, false); show(bannerEl, false); show(uploadEl, false); show(levelEl, false); show(overlayEl, false); show(launchEl, false);
+    show(chipEl, false); show(thinkingEl, false); show(echoEl, false); show(statusEl, false); show(bannerEl, false); show(uploadEl, false); show(levelEl, false); show(overlayEl, false); show(launchEl, false); show(flashEl, false);
     spcTop = document.createElement("div"); spcTop.className = "spc";
     spcBottom = document.createElement("div"); spcBottom.className = "spc";
   }
@@ -135,14 +137,31 @@ namespace Klaus {
 
   // The half-second launch card: time, one line of the day, ready hint. Any key or the
   // ~500 ms timer dismisses it; the app state underneath is untouched by both.
-  export function uiLaunchCard(time: string, line: string): void {
+  export function uiLaunchCard(time: string, line: string, hours: number, minutes: number, seconds: number): void {
     launchTime.textContent = time;
     launchLine.textContent = line;
-    launchHint.textContent = "\u25cf ready \u00b7 OK to talk";
+    launchHint.textContent = "\u25cf ready \u00b7 hold OK to talk";
+    clockH.style.transform = "rotate(" + ((hours % 12) * 30 + minutes / 2) + "deg)";
+    clockM.style.transform = "rotate(" + (minutes * 6) + "deg)";
+    clockS.style.transform = "rotate(" + (seconds * 6) + "deg)";
     show(launchEl, true);
   }
 
   export function uiLaunchCardHide(): void { show(launchEl, false); }
+
+  // One mint flash when a reply lands. 180 ms, no layout, pointer-events none.
+  var flashTimer: any = null;
+  export function uiFlash(): void {
+    show(flashEl, true);
+    flashEl.className = "on";
+    if (flashTimer) { try { clearInterval(flashTimer); } catch (_e) { /* old engines */ } flashTimer = null; }
+    flashTimer = setInterval(function (): void {
+      try { clearInterval(flashTimer); } catch (_e) { /* old engines */ }
+      flashTimer = null;
+      flashEl.className = "";
+      show(flashEl, false);
+    }, 180);
+  }
 
   export function uiComposerHint(mode: Mode, notes: boolean): void {
     var hint = mode === "rename" ? "Chat name" : mode === "typing" ? (notes ? "Type a note" : "Type a message")

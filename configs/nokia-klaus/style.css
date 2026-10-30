@@ -88,8 +88,17 @@ body { display: flex; flex-direction: column; position: relative; }
 /* v0.8 feel: launch card, reply pop, overlay slide. Every animation stays under
    300 ms, and the pop class is removed by its own timer so no row keeps the
    animation state. */
+#flash { position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 8; background: #1bfc9e; pointer-events: none; }
+@keyframes mint-flash { from { opacity: 0.35; } to { opacity: 0; } }
+#flash.on { animation: mint-flash 180ms ease-out; }
+
 #launch { position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #051111; text-align: center; }
-#launch-time { font: bold 34px sans-serif; color: #1bfc9e; line-height: 40px; }
+#clock { position: relative; width: 72px; height: 72px; margin-bottom: 6px; border: 2px solid #1bfc9e; border-radius: 36px; }
+#clock i { position: absolute; left: 50%; bottom: 50%; width: 2px; background: #1bfc9e; transform-origin: 50% 100%; }
+#hhand { height: 18px; margin-left: -1px; }
+#mhand { height: 26px; margin-left: -1px; }
+#shand { height: 28px; width: 1px; margin-left: 0; background: #8fd9bd; }
+#launch-time { font: bold 28px sans-serif; color: #1bfc9e; line-height: 32px; }
 #launch-line { margin-top: 2px; padding: 0 12px; font-size: 14px; line-height: 18px; color: #e7fff5; max-height: 36px; overflow: hidden; }
 #launch-hint { margin-top: 10px; font-size: 14px; color: #8fd9bd; }
 
@@ -239,7 +248,11 @@ body.night { background: #000; color: #e0b98f; }
 .night .chat.failed .pv { color: #ff9c86; }
 .night #bar.rec { background: #5a1010; border-bottom-color: #ff5a3c; }
 .night #bar.paused { background: #4a3400; border-bottom-color: #ffb000; }
+.night #flash { background: #ffb36b; }
 .night #launch { background: #000; }
+.night #clock { border-color: #ffb36b; }
+.night #clock i { background: #ffb36b; }
+.night #shand { background: #b8926b; }
 .night #launch-time { color: #ffb36b; }
 .night #launch-line { color: #ffe2c2; }
 .night #launch-hint { color: #b8926b; }

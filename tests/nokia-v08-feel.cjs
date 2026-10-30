@@ -137,6 +137,7 @@ function soundFake() {
   assert.equal(h.nodes['launch-time'].textContent, expectTime, 'the card carries the clock time');
   assert.equal(h.nodes['launch-line'].textContent, 'Conversation 1', 'an empty chat shows its title as the one line');
   assert.match(h.nodes['launch-hint'].textContent, /ready.*OK to talk/i, 'the ready hint invites the first press');
+  assert.match(h.nodes.hhand.style.transform, /rotate\(/, 'the analog hour hand is set from the clock');
   const before = h.vibrations.length;
   h.key('Enter');
   assert.ok(h.nodes.launch.hidden, 'the first key press dismisses the card at once');
@@ -209,6 +210,38 @@ function soundFake() {
   assert.ok(durations.length >= 2 && durations.every(ms => ms <= 300), 'every animation stays under 300 ms: ' + durations.join(','));
   assert.match(c, /\.night #launch \{[^}]*\}/, 'the launch card has a night palette');
   assert.match(c, /\.night #upload \{[^}]*\}/, 'the upload bar has a night palette');
+  assert.match(c, /#clock \{/, 'the launch card carries an analog clock');
+  assert.match(c, /@keyframes mint-flash/, 'a reply flash keyframe exists');
+}
+// ── Hold-to-talk: a long Centre press sends on release ─────────────────────────
+{
+  const h = harness(new Map(), BRIDGE);
+  h.key('Enter'); h.grant();
+  assert.equal(h.recorders[0].state, 'recording');
+  h.clock.t += 500;
+  h.handlers.keyup({key: 'Enter'});
+  const rec = h.recorders[0];
+  rec.ondataavailable({data: new Blob(['OggS'])}); rec.onstop();
+  assert.ok(h.xhrRequests.some(r => r.url.endsWith('/sessions') || r.url.endsWith('/turns')),
+    'releasing a held Centre key sends the clip');
+}
+{
+  const h = harness(new Map(), BRIDGE);
+  h.key('Enter'); h.grant();
+  h.handlers.keyup({key: 'Enter'}); // a tap: too short to send
+  assert.equal(h.recorders[0].state, 'recording', 'a short tap still starts a recording you can pause');
+  assert.ok(!h.xhrRequests.some(r => r.url.endsWith('/turns')), 'a tap does not send');
+}
+// ── Arrival flash ─────────────────────────────────────────────────────────────
+{
+  const h = harness(new Map(), BRIDGE);
+  h.key('SoftLeft'); h.composer.value = 'flash'; h.key('Enter');
+  respond(h, last(h, isCreate), 201, {id: 'srv-fl'});
+  respond(h, last(h, isTurn), 202, {runId: 'r-fl', state: 'pending'});
+  h.pollTimers[h.activePolls().at(-1)].fn();
+  respond(h, last(h, isPoll('srv-fl')), 200, {state: 'complete', runId: 'r-fl', messages: [{role: 'user', text: 'flash'}, {role: 'assistant', text: 'boom'}]});
+  assert.match(h.nodes.flash.className, /\bon\b/, 'a new reply flashes the screen');
+  h.finishSpeech();
 }
 
 console.log('Nokia v08 feel (sounds, key tick, launch card, reply pop, motion) checks passed');

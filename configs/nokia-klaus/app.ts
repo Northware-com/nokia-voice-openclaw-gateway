@@ -173,6 +173,8 @@ namespace Klaus {
     // as the legacy splash-skip did).
     var uiSplashGate: ((skipped: boolean) => boolean) | null = null;
     var launchTick: any = null;
+    var talkHeld = false;
+    var talkDownAt = 0;
 
     function setMode(next: Mode): void {
       mode = next;
@@ -632,7 +634,7 @@ namespace Klaus {
       if (!(settled && (next === "pending" || next === "idle"))) sess.serverState = next;
       persist();
       for (var k = oldCount; k < msgs.length; k++) {
-        if (msgs[k].role === "assistant") { buzz("arrived"); sfx("reply"); break; }
+        if (msgs[k].role === "assistant") { buzz("arrived"); sfx("reply"); uiFlash(); break; }
       }
       if (autoRead && !busy) {
         for (var i = oldCount; i < msgs.length; i++) {
@@ -1441,6 +1443,7 @@ namespace Klaus {
       var key = keyOf(event);
       var action = mapKey(mode, key, mode === "search" ? !searchQuery : !composer.value, canResume);
       if (action === "none") return;
+      if (action === "talk") { talkHeld = true; talkDownAt = Date.now(); }
       buzz("key"); // every key that acts gets the light tick
       sfx("key");
       uiKeyDown(softkeyIndex(key));
@@ -1456,7 +1459,18 @@ namespace Klaus {
       run(action, key);
     });
 
-    document.addEventListener("keyup", function (): void { uiKeyUp(); });
+    document.addEventListener("keyup", function (event: KeyboardEvent): void {
+      uiKeyUp();
+      var key = keyOf(event);
+      // Hold-to-talk: Centre held longer than a tap sends on release. A short tap still
+      // starts a recording you can pause. Builds that never see keyup keep the old path.
+      if ((key === "Enter" || key === " ") && talkHeld && mode === "recording" && Date.now() - talkDownAt >= 450) {
+        talkHeld = false;
+        stopRecording();
+        return;
+      }
+      talkHeld = false;
+    });
 
     composer.addEventListener("focus", function (): void { if (mode === "idle") setMode("typing"); });
     composer.addEventListener("blur", function (): void { if (mode === "typing" || mode === "rename") setMode("idle"); });
@@ -1572,7 +1586,7 @@ namespace Klaus {
       line = line.replace(/[\r\n\t]+/g, " ");
       if (line.length > 44) line = line.slice(0, 43) + "\u2026";
       var d = new Date(Date.now());
-      uiLaunchCard(d.getHours() + (d.getMinutes() < 10 ? ":0" : ":") + d.getMinutes(), line);
+      uiLaunchCard(d.getHours() + (d.getMinutes() < 10 ? ":0" : ":") + d.getMinutes(), line, d.getHours(), d.getMinutes(), d.getSeconds());
       launchTick = setInterval(function (): void {
         clearInterval(launchTick);
         launchTick = null;
