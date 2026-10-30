@@ -59,14 +59,17 @@ Key bindings on the KaiOS voice app (`nokia-klaus`). The softkey bar always show
 | **Call** (green) | Send the clip or typed text (SoftRight also sends while paused) |
 | **Backspace** (recording) | Discard the clip (asks twice over 3 s) |
 | **SoftLeft** | Type a message (Enter or Call sends) |
-| **SoftRight** | Menu: New chat, Rename, Archive, Retry last, Read aloud on/off |
+| **SoftRight** | Menu, numbered 1-10: New chat, Rename, Archive, Retry last, Read aloud, Vibrate, Night mode, Large text, Keys, Backup chats |
 | **↑** / **↓** | Focus previous / next message |
 | **←** / **→**, **4** / **6** | Switch chat |
 | **1** / **9** | Oldest / newest message |
 | **2** / **8** | Page up / down |
 | **5** | Read the focused (or latest) reply aloud |
-| **0** | Toggle auto read-aloud |
+| **0** | Quick replies (in notes: 0 starts the long meeting recording) |
 | **#** | Chat list |
+| **1-4** (chat list) | Speed dial: Notes, Klaus, Last, Today |
+| **7** (chat list) | Pin / unpin the chat under the cursor (P badge, top of the list) |
+| **right key** (chat list) | Search chats, case- and accent-insensitive; OK opens the hit |
 | **3** / **7** | New chat / archive chat (with confirm) |
 | **\*** | Notes screen: voice/typed notes to the quick-note inbox |
 | **Backspace** | Cancel the pending request or unsent clip; otherwise exits |

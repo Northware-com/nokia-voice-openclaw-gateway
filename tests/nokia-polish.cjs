@@ -1,5 +1,5 @@
 // nokia-polish.cjs — numbered menu, Keys help screen, state-aware empty-chat hint, notices that
-// keep the newest message in view, 0.7.0 manifest.
+// keep the newest message in view, 0.8.0 manifest.
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -82,7 +82,7 @@ const menuRows = h => h.nodes['overlay-list'].children.filter(c => /\bitem\b/.te
 // ── Manifest version ───────────────────────────────────────────────────────
 {
   const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../configs/nokia-klaus/manifest.webapp'), 'utf8'));
-  assert.equal(manifest.version, '0.7.0');
+  assert.equal(manifest.version, '0.8.0');
 }
 
 console.log('Nokia polish (menu digits, Keys screen, empty hint, version) checks passed');
