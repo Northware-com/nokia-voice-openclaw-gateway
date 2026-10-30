@@ -163,6 +163,18 @@ namespace Klaus {
     }, 180);
   }
 
+  var slideTimer: any = null;
+  export function uiChatSlide(dir: number): void {
+    chatEl.className = (chatEl.className || "").replace(/\s*slide-(next|prev)\b/g, "");
+    chatEl.className = (chatEl.className ? chatEl.className + " " : "") + (dir > 0 ? "slide-next" : "slide-prev");
+    if (slideTimer) { try { clearInterval(slideTimer); } catch (_e) { /* old engines */ } }
+    slideTimer = setInterval(function (): void {
+      try { clearInterval(slideTimer); } catch (_e) { /* old engines */ }
+      slideTimer = null;
+      chatEl.className = (chatEl.className || "").replace(/\s*slide-(next|prev)\b/g, "");
+    }, 160);
+  }
+
   export function uiComposerHint(mode: Mode, notes: boolean): void {
     var hint = mode === "rename" ? "Chat name" : mode === "typing" ? (notes ? "Type a note" : "Type a message")
       : notes ? "OK: talk · Left: type a note" : "OK: talk · Left: type";

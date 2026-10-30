@@ -15,6 +15,7 @@ function record(h) {
   h.key('5'); assert.equal(h.nodes.player.paused, true);
   const second = record(h);
   h.key('ArrowLeft');
+  assert.match(h.nodes.chat.className, /slide-prev/, 'previous chat slides in from the left');
   assert.equal(h.nodes.player.src, first, 'Switching must preserve source recording');
   h.key('5'); assert.equal(h.nodes.player.paused, false);
   h.key('ArrowRight'); assert.equal(h.nodes.player.src, second);

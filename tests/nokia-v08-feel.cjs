@@ -212,6 +212,8 @@ function soundFake() {
   assert.match(c, /\.night #upload \{[^}]*\}/, 'the upload bar has a night palette');
   assert.match(c, /#clock \{/, 'the launch card carries an analog clock');
   assert.match(c, /@keyframes mint-flash/, 'a reply flash keyframe exists');
+  assert.match(c, /@keyframes chat-next/, 'chat switch slides forward');
+  assert.match(c, /@keyframes chat-prev/, 'chat switch slides back');
 }
 // ── Hold-to-talk: a long Centre press sends on release ─────────────────────────
 {

@@ -20,6 +20,10 @@ body { display: flex; flex-direction: column; position: relative; }
 
 /* Transcript */
 #chat { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 4px 3px 2px; }
+@keyframes chat-next { from { opacity: 0.4; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes chat-prev { from { opacity: 0.4; transform: translateX(-18px); } to { opacity: 1; transform: translateX(0); } }
+#chat.slide-next { animation: chat-next 160ms ease-out; }
+#chat.slide-prev { animation: chat-prev 160ms ease-out; }
 #transcript { display: flex; flex-direction: column; }
 .msg { display: flex; flex-direction: row; justify-content: flex-start; margin: 0 0 5px; padding: 2px 2px 2px 5px; border-left: 3px solid transparent; }
 .msg.user { justify-content: flex-end; }

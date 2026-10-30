@@ -301,12 +301,13 @@ namespace Klaus {
     }
 
     // ── Sessions ────────────────────────────────────────────────────────────
-    function switchTo(index: number): void {
+    function switchTo(index: number, dir?: number): void {
       cancelLocalCapture();
       active = index;
       touch(sessions[active]);
       persist();
       updateView();
+      if (dir) uiChatSlide(dir);
     }
 
     function switchSession(direction: number): void {
@@ -316,7 +317,7 @@ namespace Klaus {
         next = (next + (direction > 0 ? 1 : -1) + sessions.length) % sessions.length;
         if (!sessions[next].archived) break;
       }
-      switchTo(next);
+      switchTo(next, direction);
     }
 
     function newSession(): boolean {
